@@ -1,0 +1,5 @@
+{
+  "name": "CanvasClassroom",
+  "description": "An AI-powered educational platform for teaching creative coding with p5.js in schools.",
+  "requestFramePermissions": []
+}
