@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Scratch Editor</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; }
+      iframe { width: 100%; height: 100%; border: none; }
+    </style>
+  </head>
+  <body>
+    <iframe 
+      id="scratch-iframe"
+      src="/scratch-gui/index.html"
+      allow="clipboard-read; clipboard-write; microphone; camera; serial; usb; bluetooth"
+      allowfullscreen
+    ></iframe>
+    <script>
+      const iframe = document.getElementById('scratch-iframe');
+      
+      iframe.onload = function() {
+        console.log('Scratch GUI loaded');
+        window.parent.postMessage({ type: 'SCRATCH_LOADED' }, '*');
+      };
+      
+      // Forward messages between parent and Scratch GUI
+      window.addEventListener('message', function(event) {
+        // From parent to Scratch
+        if (event.data?.type === 'GET_PROJECT' || event.data?.type === 'LOAD_PROJECT') {
+          iframe.contentWindow?.postMessage(event.data, '*');
+        }
+        
+        // From Scratch to parent  
+        if (event.data?.type === 'SCRATCH_PROJECT_DATA') {
+          window.parent.postMessage(event.data, '*');
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -30,6 +30,31 @@ const createDefaultUnits = (classId: string): Unit[] => [
 // Default lessons (will be scoped to class)
 const createDefaultLessons = (classId: string, unitId: string): LessonPlan[] => [
   {
+    id: '3',
+    classId,
+    unitId,
+    type: 'Lesson',
+    topic: 'Scratch Introduction',
+    title: 'My First Scratch Project',
+    difficulty: 'Beginner',
+    objective: 'Learn to use Scratch blocks',
+    description: 'Create your first animated sprite in Scratch.',
+    theory: "**Welcome to Scratch!** \n\nScratch uses visual blocks instead of text code. \n- Drag blocks from the palette to the coding area\n- Connect blocks together to create scripts\n- Click the green flag to run your project",
+    steps: [
+      '[NEXT] Look at the Scratch editor. Notice the sprite in the center?',
+      '[TEXT] What do you think the "when flag clicked" block does?',
+      'Add a "move 10 steps" block to make the sprite move.',
+      'Add a "say Hello!" block to make the sprite talk.',
+      'Click the green flag to see your project run!'
+    ],
+    starterCode: '{}', // Empty Scratch project JSON
+    challenge: 'Can you make the sprite move in a square pattern?',
+    isAiGuided: true,
+    tags: ['scratch', 'motion', 'events'],
+    reflectionQuestion: 'How is Scratch different from text-based coding?',
+    editorType: 'scratch'
+  },
+  {
     id: '1',
     classId,
     unitId,
@@ -51,7 +76,8 @@ const createDefaultLessons = (classId: string, unitId: string): LessonPlan[] => 
     challenge: 'Can you change the colors of the shapes using fill()?',
     isAiGuided: true,
     tags: ['shapes', 'coordinates', 'color'],
-    reflectionQuestion: 'Why do we put the background() command inside the draw() function?'
+    reflectionQuestion: 'Why do we put the background() command inside the draw() function?',
+    editorType: 'p5'
   },
   {
     id: '2',
@@ -72,7 +98,8 @@ const createDefaultLessons = (classId: string, unitId: string): LessonPlan[] => 
     starterCode: 'function setup() {\n  createCanvas(400, 400);\n}\n\nfunction draw() {\n  background(220);\n  \n  // CHANGE ME: Add a fill() command here\n  \n  ellipse(200, 200, 100, 100);\n}',
     challenge: 'Make the circle green!',
     isAiGuided: true,
-    tags: ['color', 'shapes']
+    tags: ['color', 'shapes'],
+    editorType: 'p5'
   }
 ];
 

@@ -27,6 +27,7 @@ const ClassManager: React.FC<ClassManagerProps> = ({
   const [newClassName, setNewClassName] = useState('');
   const [newClassPeriod, setNewClassPeriod] = useState('');
   const [newClassYear, setNewClassYear] = useState(new Date().getFullYear().toString());
+  const [newClassEditorType, setNewClassEditorType] = useState<'p5' | 'scratch'>('p5');
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -39,11 +40,13 @@ const ClassManager: React.FC<ClassManagerProps> = ({
       name: newClassName,
       period: newClassPeriod || undefined,
       academicYear: newClassYear,
-      teacherId: 'teacher1' // TODO: Get from auth
+      teacherId: 'teacher1', // TODO: Get from auth
+      defaultEditorType: newClassEditorType
     });
     
     setNewClassName('');
     setNewClassPeriod('');
+    setNewClassEditorType('p5');
     setShowCreateForm(false);
   };
 
@@ -52,6 +55,7 @@ const ClassManager: React.FC<ClassManagerProps> = ({
     setNewClassName(classItem.name);
     setNewClassPeriod(classItem.period || '');
     setNewClassYear(classItem.academicYear);
+    setNewClassEditorType(classItem.defaultEditorType || 'p5');
     setShowCreateForm(true);
   };
 
@@ -61,12 +65,14 @@ const ClassManager: React.FC<ClassManagerProps> = ({
     onUpdateClass(editingClass.id, {
       name: newClassName,
       period: newClassPeriod || undefined,
-      academicYear: newClassYear
+      academicYear: newClassYear,
+      defaultEditorType: newClassEditorType
     });
     
     setEditingClass(null);
     setShowCreateForm(false);
     setNewClassName('');
+    setNewClassEditorType('p5');
   };
 
   return (
@@ -208,6 +214,22 @@ const ClassManager: React.FC<ClassManagerProps> = ({
                   onChange={(e) => setNewClassYear(e.target.value)}
                 />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Default Editor Type *
+              </label>
+              <select
+                className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md px-3 py-2"
+                value={newClassEditorType}
+                onChange={(e) => setNewClassEditorType(e.target.value as 'p5' | 'scratch')}
+              >
+                <option value="p5">p5.js (Text Code)</option>
+                <option value="scratch">Scratch (Visual Blocks)</option>
+              </select>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                AI will generate lessons using this editor by default
+              </p>
             </div>
             <div className="flex gap-2">
               <Button onClick={editingClass ? handleSaveEdit : handleCreateClass} disabled={!newClassName.trim()}>

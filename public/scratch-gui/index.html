@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="google" value="notranslate">
+    <link rel="shortcut icon" href="static/favicon.ico">
+    <title>Scratch 3.0 GUI</title>
+    <script defer src="gui.js"></script>
+    <script>
+      // Handle messages from parent for project data
+      window.addEventListener('message', function(event) {
+        if (event.data?.type === 'GET_PROJECT') {
+          if (window.vm && typeof window.vm.toJSON === 'function') {
+            const projectData = window.vm.toJSON();
+            console.log('📤 Sending project data, targets:', projectData?.targets?.length);
+            event.source.postMessage({
+              type: 'SCRATCH_PROJECT_DATA',
+              project: projectData
+            }, event.origin === 'null' ? '*' : event.origin);
+          } else {
+            console.warn('VM not available yet');
+            event.source.postMessage({
+              type: 'SCRATCH_PROJECT_DATA',
+              project: null,
+              error: 'VM not ready'
+            }, event.origin === 'null' ? '*' : event.origin);
+          }
+        }
+        
+        if (event.data?.type === 'LOAD_PROJECT' && window.vm) {
+          window.vm.loadProject(event.data.project)
+            .then(() => console.log('📥 Project loaded'))
+            .catch(e => console.error('Load error:', e));
+        }
+      });
+      
+      // Log when VM becomes available
+      let vmCheckCount = 0;
+      const checkVM = setInterval(() => {
+        vmCheckCount++;
+        if (window.vm) {
+          console.log('✅ VM available on window.vm after', vmCheckCount, 'checks');
+          clearInterval(checkVM);
+        } else if (vmCheckCount > 30) {
+          console.warn('VM not found after 30 checks');
+          clearInterval(checkVM);
+        }
+      }, 500);
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

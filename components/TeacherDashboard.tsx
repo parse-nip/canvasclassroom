@@ -6,6 +6,7 @@ import { FaWandMagicSparkles, FaBookOpen, FaClipboardCheck, FaPlus, FaRobot, FaL
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import P5Editor from './P5Editor';
+import ScratchEditor from './ScratchEditor';
 import StudentRoster from './StudentRoster';
 import EnrollmentManager from './EnrollmentManager';
 import AnalyticsDashboard from './AnalyticsDashboard';
@@ -178,7 +179,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       contextStr = prereqs.map(l => `Lesson: ${l.title} (Objective: ${l.objective}, Tags: ${l.tags?.join(', ')})`).join('\n');
     }
 
-    const lesson = await generateLessonPlan(topic, level, lessonType, contextStr);
+    const editorType = currentClass?.defaultEditorType || 'p5';
+    const lesson = await generateLessonPlan(topic, level, lessonType, contextStr, editorType);
     if (lesson) {
       setGeneratedLesson(lesson);
     }
@@ -368,14 +370,16 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleSaveLesson = () => {
     if (!generatedLesson) return;
 
+    const editorType = currentClass?.defaultEditorType || 'p5';
     const newLesson: LessonPlan = {
       id: Date.now().toString(),
       classId: classId,
       topic: topic,
       type: lessonType,
       ...generatedLesson,
-      isAiGuided: lessonType === 'Assignment' ? true : aiGuidedMode, // Enforce step-by-step for assignments
-      unitId: selectedUnitId || undefined
+      isAiGuided: lessonType === 'Lesson' ? aiGuidedMode : false, // Assignments are independent work (no AI validation)
+      unitId: selectedUnitId || undefined,
+      editorType: editorType
     };
 
     onAddLesson(newLesson);
@@ -1541,15 +1545,32 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col min-h-0 max-h-[400px] relative bg-slate-100 dark:bg-black overflow-auto">
-                      <P5Editor initialCode={sub.code} readOnly={true} lessonTitle={`Submission: ${lesson?.title}`} />
-                    </div>
+                    {/* For assignments, show code. For lessons, only show reflection */}
+                    {lesson?.type === 'Assignment' ? (
+                      <div className="flex-1 flex flex-col min-h-0 max-h-[400px] relative bg-slate-100 dark:bg-black overflow-auto">
+                        {lesson.editorType === 'scratch' ? (
+                          <div className="w-full h-full relative">
+                            <ScratchEditor initialCode={sub.code} readOnly={true} />
+                          </div>
+                        ) : (
+                          <P5Editor initialCode={sub.code} readOnly={true} lessonTitle={`Submission: ${lesson?.title}`} />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-1 p-6 bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+                        <div className="text-center text-slate-400 dark:text-slate-500">
+                          <FaBookOpen className="text-4xl mx-auto mb-2 opacity-50" />
+                          <p className="text-sm font-medium">Lesson Project</p>
+                          <p className="text-xs mt-1">Only reflection is graded for lessons</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-10">
                       {sub.textAnswer && (
                         <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
                           <h4 className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase mb-1 flex items-center gap-1">
-                            <FaPen size={10} /> Student Reflection
+                            <FaPen size={10} /> {lesson?.type === 'Assignment' ? 'Student Response' : 'Student Reflection'}
                           </h4>
                           <p className="text-sm text-slate-800 dark:text-slate-200 italic">"{sub.textAnswer}"</p>
                         </div>

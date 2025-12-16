@@ -4,6 +4,7 @@ import { LessonPlan, Submission, Unit, StepHistory } from '../types';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
 import P5Editor from './P5Editor';
+import ScratchEditor from './ScratchEditor';
 import { FaChevronRight, FaCircleCheck, FaLightbulb, FaRobot, FaPaperPlane, FaArrowLeft, FaLock, FaSpinner, FaCheck, FaBookOpen, FaStar, FaPen, FaCommentDots, FaEye, FaClipboardCheck, FaArrowRotateLeft, FaXmark, FaClock } from 'react-icons/fa6';
 import { analyzeStudentCode, validateStep, explainError } from '../services/openRouterService';
 
@@ -60,6 +61,8 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
     const [reflectionAnswer, setReflectionAnswer] = useState('');
     const [stepTextAnswer, setStepTextAnswer] = useState('');
     const [reviewStepIndex, setReviewStepIndex] = useState<number | null>(null);
+    const [sidebarWidth, setSidebarWidth] = useState(380);
+    const [isResizing, setIsResizing] = useState(false);
 
     const handleStartLesson = (lesson: LessonPlan) => {
         const existingSub = submissions.find(s => s.lessonId === lesson.id);
@@ -199,6 +202,46 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
     const closeReview = () => {
         setReviewStepIndex(null);
     };
+
+    // Resize handlers - use refs to avoid stale closures
+    const isResizingRef = React.useRef(false);
+    
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isResizingRef.current = true;
+        setIsResizing(true);
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    };
+
+    React.useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizingRef.current) return;
+            e.preventDefault();
+            const newWidth = window.innerWidth - e.clientX;
+            setSidebarWidth(Math.max(280, Math.min(600, newWidth)));
+        };
+
+        const handleMouseUp = () => {
+            if (isResizingRef.current) {
+                isResizingRef.current = false;
+                setIsResizing(false);
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+    }, []);
 
     const getStatus = (lessonId: string) => {
         const sub = submissions.find(s => s.lessonId === lessonId);
@@ -462,15 +505,24 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
             <div className="flex-1 flex flex-col lg:flex-row min-h-0 relative overflow-hidden">
 
                 {/* Left: Editor */}
-                <div className="flex-1 h-full flex flex-col min-h-0 border-r border-slate-200 dark:border-slate-700 relative">
-                    <P5Editor
-                        initialCode={currentCode}
-                        onChange={setCurrentCode}
-                        readOnly={isReadOnly || isReviewing}
-                        onExplainSelection={handleExplainSelection}
-                        onExplainError={handleConsoleError}
-                        lessonTitle={activeLesson.title}
-                    />
+                <div className="flex-1 h-full flex flex-col min-h-0 relative overflow-hidden">
+                    {activeLesson.editorType === 'scratch' ? (
+                        <ScratchEditor
+                            initialCode={currentCode}
+                            onChange={setCurrentCode}
+                            readOnly={isReadOnly || isReviewing}
+                            onExplainError={handleConsoleError}
+                        />
+                    ) : (
+                        <P5Editor
+                            initialCode={currentCode}
+                            onChange={setCurrentCode}
+                            readOnly={isReadOnly || isReviewing}
+                            onExplainSelection={handleExplainSelection}
+                            onExplainError={handleConsoleError}
+                            lessonTitle={activeLesson.title}
+                        />
+                    )}
 
                     {/* Hint/Error Overlay (Moved Inside Editor Area) */}
                     {aiAnalysis && !isAnalyzing && (
@@ -486,18 +538,18 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                         </div>
                     )}
 
-                    {/* Mission Brief Overlay */}
+                    {/* Mission Brief Overlay - top left to avoid blocking Scratch backpack */}
                     {activeLesson.type === 'Lesson' && activeLesson.theory && showTheory && (
-                        <div className="absolute bottom-4 right-4 w-[90%] md:w-[400px] z-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-2xl border-2 border-indigo-100 dark:border-indigo-900/50 rounded-xl overflow-hidden animate-in slide-in-from-bottom-4">
-                            <div className="bg-indigo-50 dark:bg-indigo-900/20 px-4 py-2 flex justify-between items-center border-b border-indigo-100 dark:border-indigo-900/30">
-                                <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase flex items-center gap-2">
+                        <div className="absolute top-2 left-2 w-[320px] z-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-xl border border-indigo-100 dark:border-indigo-900/50 rounded-lg overflow-hidden animate-in slide-in-from-left-4">
+                            <div className="bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 flex justify-between items-center border-b border-indigo-100 dark:border-indigo-900/30">
+                                <h4 className="text-[10px] font-bold text-indigo-700 dark:text-indigo-400 uppercase flex items-center gap-1.5">
                                     <FaRobot /> Mission Brief
                                 </h4>
-                                <button onClick={() => setShowTheory(false)} className="text-xs text-indigo-400 dark:text-indigo-300 hover:text-indigo-700 font-bold">
-                                    Hide
+                                <button onClick={() => setShowTheory(false)} className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:text-indigo-700 font-bold">
+                                    ✕
                                 </button>
                             </div>
-                            <div className="p-4 text-sm text-slate-700 dark:text-slate-300 leading-relaxed max-h-48 overflow-y-auto no-scrollbar">
+                            <div className="p-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed max-h-32 overflow-y-auto no-scrollbar">
                                 <SimpleMarkdown text={activeLesson.theory} />
                             </div>
                         </div>
@@ -505,7 +557,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                     {!showTheory && activeLesson.type === 'Lesson' && (
                         <button
                             onClick={() => setShowTheory(true)}
-                            className="absolute bottom-4 right-4 z-10 bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 p-3 rounded-full hover:scale-110 transition-transform"
+                            className="absolute top-2 left-2 z-10 bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 p-2 rounded-lg hover:scale-105 transition-transform text-sm"
                             title="Show Mission Brief"
                         >
                             <FaBookOpen />
@@ -513,8 +565,25 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                     )}
                 </div>
 
+                {/* Resize Handle */}
+                <div
+                    className={`hidden lg:flex w-2 bg-slate-200 dark:bg-slate-700 hover:bg-indigo-400 dark:hover:bg-indigo-600 cursor-col-resize items-center justify-center group transition-colors flex-shrink-0 ${isResizing ? 'bg-indigo-500' : ''}`}
+                    onMouseDown={handleMouseDown}
+                >
+                    <div className="w-0.5 h-12 bg-slate-400 dark:bg-slate-500 group-hover:bg-white rounded-full transition-colors"></div>
+                </div>
+                
+                {/* Overlay to capture mouse events during resize (prevents iframe from stealing events) */}
+                {isResizing && (
+                    <div className="fixed inset-0 z-50 cursor-col-resize" />
+                )}
+
                 {/* Right: Sidebar */}
-                <div id="student-sidebar" className="w-full lg:w-[450px] bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden border-l border-slate-100 dark:border-slate-800 shadow-xl z-20">
+                <div 
+                    id="student-sidebar" 
+                    className="w-full bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden shadow-xl z-20 flex-shrink-0"
+                    style={{ width: window.innerWidth >= 1024 ? sidebarWidth : '100%' }}
+                >
                     <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
 
                         {/* Feedback Box */}
@@ -532,9 +601,9 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
 
                         {/* Active Step Card (Unified View) */}
                         {!isComplete && !isReadOnly && (
-                            <div className={`bg-white dark:bg-slate-800 border-2 rounded-xl p-5 shadow-lg relative overflow-hidden transition-colors ${isReviewing ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900' : activeLesson.isAiGuided ? 'border-indigo-500 shadow-indigo-100 dark:shadow-none' : 'border-slate-300 dark:border-slate-600 shadow-sm'}`}>
-                                <div className={`absolute top-0 right-0 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl ${isReviewing ? 'bg-slate-400' : activeLesson.isAiGuided ? 'bg-indigo-500' : 'bg-slate-500'}`}>
-                                    {isReviewing ? 'REVIEWING' : `STEP ${stepToShowIndex + 1}`}
+                            <div className={`bg-white dark:bg-slate-800 border-2 rounded-xl p-5 shadow-lg relative overflow-hidden transition-colors ${isReviewing ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900' : activeLesson.isAiGuided ? 'border-indigo-500 shadow-indigo-100 dark:shadow-none' : 'border-pink-300 dark:border-pink-800 shadow-sm'}`}>
+                                <div className={`absolute top-0 right-0 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl ${isReviewing ? 'bg-slate-400' : activeLesson.isAiGuided ? 'bg-indigo-500' : 'bg-pink-500'}`}>
+                                    {isReviewing ? 'REVIEWING' : activeLesson.isAiGuided ? `STEP ${stepToShowIndex + 1}` : `REQUIREMENT ${stepToShowIndex + 1}`}
                                 </div>
 
                                 <div className="mt-4 mb-6">
@@ -640,7 +709,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                         {/* Progress List (Clickable History) */}
                         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
-                                Mission Progress
+                                {activeLesson.isAiGuided ? 'Mission Progress' : 'Requirements Checklist'}
                             </h4>
                             <div className="space-y-4 relative pl-4">
                                 <div className="absolute left-[23px] top-2 bottom-2 w-0.5 bg-slate-100 dark:bg-slate-800 -z-10"></div>

@@ -15,6 +15,7 @@ export interface Class {
   teacherId: string;
   classCode: string; // 6-digit enrollment code
   createdAt: number;
+  defaultEditorType?: 'p5' | 'scratch'; // Default editor for new lessons
 }
 
 // Enrollment status
@@ -60,6 +61,7 @@ export interface LessonPlan {
   rubricId?: string; // Optional rubric for grading
   isTemplate?: boolean; // If true, can be reused across classes
   variant?: string; // For differentiated assignments (e.g., 'easy', 'hard')
+  editorType?: 'p5' | 'scratch'; // Which editor to use (defaults to 'p5')
 }
 
 export interface Student {

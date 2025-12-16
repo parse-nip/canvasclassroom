@@ -76,50 +76,172 @@ const JSON_EXAMPLE = `
 }
 `;
 
-export const generateLessonPlan = async (topic: string, level: string, type: LessonType, previousLessonsContext: string = ""): Promise<AILessonResponse | null> => {
+export const generateLessonPlan = async (
+  topic: string, 
+  level: string, 
+  type: LessonType, 
+  previousLessonsContext: string = "",
+  editorType: 'p5' | 'scratch' = 'p5'
+): Promise<AILessonResponse | null> => {
+  const isScratch = editorType === 'scratch';
+  
+  // Detect if this is a robotics-related topic
+  const roboticsKeywords = ['robot', 'robotics', 'ev3', 'lego', 'boost', 'microbit', 'micro:bit', 'makey makey', 'arduino', 'sensor', 'motor', 'servo', 'actuator', 'hardware', 'physical computing'];
+  const isRobotics = roboticsKeywords.some(keyword => topic.toLowerCase().includes(keyword.toLowerCase()));
+  
   let typePrompt = "";
   if (type === 'Lesson') {
-    typePrompt = `
-      This is an INTERACTIVE LESSON.
-      Goal: Teach a new concept through discovery.
-      Starter Code: Provide working code but leave small parts for the student to change to see effects.
-      Steps: 
-        - Use [NEXT] for observation steps (e.g. "[NEXT] Run the code. What happens?").
-        - Use [TEXT] for understanding checks (e.g. "[TEXT] Why did the circle move?").
-        - Code tasks should be "Change X to Y" or "Uncomment this line".
-      `;
+    if (isScratch) {
+      if (isRobotics) {
+        typePrompt = `
+        This is a SCRATCH ROBOTICS LESSON - PHYSICAL COMPUTING.
+        Goal: Teach students to program physical robots/hardware using Scratch extensions.
+        
+        CRITICAL ROBOTICS REQUIREMENTS:
+        - MUST use Scratch extensions (LEGO MINDSTORMS EV3, LEGO BOOST, micro:bit, Makey Makey, etc.)
+        - Include connection instructions in theory (e.g. "First, connect your EV3 robot via Bluetooth")
+        - Steps should guide students through:
+          1. Adding the extension (e.g. "Click the 'Add Extension' button and select 'LEGO MINDSTORMS EV3'")
+          2. Connecting hardware (e.g. "Click the 'Connect' button and select your robot")
+          3. Using extension blocks (e.g. "Add a 'motor A on' block")
+          4. Testing with physical robot
+        - Starter Code: Empty project (use "{}" as starter code).
+        - Theory should explain both the Scratch blocks AND what the robot will do physically.
+        - Include safety reminders if applicable (e.g. "Make sure your robot has space to move!")
+        - Tags MUST include: "robotics", "extensions", and the specific hardware name (e.g. "ev3", "microbit")
+        `;
+      } else {
+        typePrompt = `
+        This is an INTERACTIVE SCRATCH LESSON.
+        Goal: Teach a new concept through discovery using visual blocks.
+        Starter Code: Empty project (use "{}" as starter code).
+        Steps: 
+          - Use [NEXT] for observation steps (e.g. "[NEXT] Look at the sprite. What direction is it facing?").
+          - Use [TEXT] for understanding checks (e.g. "[TEXT] What do you think 'move 10 steps' does?").
+          - Block tasks should be specific (e.g. "Add a 'move 10 steps' block" or "Change the number to 50").
+        `;
+      }
+    } else {
+      typePrompt = `
+        This is an INTERACTIVE LESSON.
+        Goal: Teach a new concept through discovery.
+        Starter Code: Provide working code but leave small parts for the student to change to see effects.
+        Steps: 
+          - Use [NEXT] for observation steps (e.g. "[NEXT] Run the code. What happens?").
+          - Use [TEXT] for understanding checks (e.g. "[TEXT] Why did the circle move?").
+          - Code tasks should be "Change X to Y" or "Uncomment this line".
+        `;
+    }
   } else {
-    typePrompt = `
-      This is a CODING ASSIGNMENT (TEST).
-      Goal: Test the student's ability to apply concepts.
+    if (isScratch) {
+      // Re-check robotics for assignments (already checked above, but keeping for clarity)
+      const isRoboticsAssignment = roboticsKeywords.some(keyword => topic.toLowerCase().includes(keyword.toLowerCase()));
       
-      CONTEXT - The student has already learned:
-      ${previousLessonsContext ? previousLessonsContext : "General p5.js concepts for this level."}
+      if (isRoboticsAssignment) {
+        typePrompt = `
+        This is a SCRATCH ROBOTICS ASSIGNMENT (TEST) - INDEPENDENT WORK WITH PHYSICAL HARDWARE.
+        Goal: Test the student's ability to program robots/hardware independently.
+        
+        CONTEXT - The student has already learned:
+        ${previousLessonsContext ? previousLessonsContext : "Scratch robotics extensions and hardware connections."}
 
-      Starter Code: MUST BE MINIMAL. Skeleton only. DO NOT PROVIDE THE SOLUTION.
-      Steps: 
-        - High-level requirements ONLY (e.g. "Draw a blue circle"). 
-        - DO NOT say "Type fill(0,0,255)".
-        - Make them figure out syntax.
-      `;
+        Starter Code: Empty project (use "{}" as starter code).
+        Steps: 
+          - Project requirements as a checklist for physical robot behavior (e.g. "Make the robot move forward 50cm", "Program the robot to turn left when it detects an obstacle", "Use sensors to make the robot stop at a line").
+          - 3-5 requirements total.
+          - DO NOT list exact blocks or give solutions.
+          - Requirements should describe PHYSICAL BEHAVIOR, not just code.
+          - They work independently with their hardware and submit when done.
+        `;
+      } else {
+        typePrompt = `
+        This is a SCRATCH CODING ASSIGNMENT (TEST) - INDEPENDENT WORK.
+        Goal: Test the student's ability to apply Scratch block concepts WITHOUT step-by-step help.
+        
+        CONTEXT - The student has already learned:
+        ${previousLessonsContext ? previousLessonsContext : "Basic Scratch blocks for this level."}
+
+        Starter Code: Empty project (use "{}" as starter code).
+        Steps: 
+          - Project requirements as a checklist (e.g. "Make the sprite move in a square", "Add a color-changing effect"). 
+          - 3-5 requirements total.
+          - DO NOT list exact blocks or give solutions.
+          - They work independently and submit when done.
+        `;
+      }
+    } else {
+      typePrompt = `
+        This is a CODING ASSIGNMENT (TEST) - INDEPENDENT WORK.
+        Goal: Test the student's ability to apply concepts WITHOUT step-by-step help.
+        
+        CONTEXT - The student has already learned:
+        ${previousLessonsContext ? previousLessonsContext : "General p5.js concepts for this level."}
+
+        Starter Code: MUST BE MINIMAL. Skeleton only. DO NOT PROVIDE THE SOLUTION.
+        Steps: 
+          - Project requirements as a checklist (e.g. "Draw a blue circle", "Make it move").
+          - 3-5 requirements total.
+          - DO NOT give exact code or solutions.
+          - They work independently and submit when done.
+        `;
+    }
   }
+
+  const scratchExample = `
+{
+  "title": "My Moving Cat",
+  "difficulty": "Beginner",
+  "objective": "Learn to use motion blocks",
+  "description": "Make the Scratch cat move across the screen.",
+  "theory": "In Scratch, **motion blocks** let sprites move around the stage. The 'move 10 steps' block makes your sprite walk forward!",
+  "steps": [
+    "[NEXT] Click the green flag. Notice the sprite doesn't move yet.",
+    "[TEXT] What color are the motion blocks in Scratch?",
+    "Add a 'when flag clicked' event block.",
+    "Connect a 'move 10 steps' block below it.",
+    "Click the green flag to test your code."
+  ],
+  "starterCode": "{}",
+  "challenge": "Can you make the cat move backwards? Hint: try negative numbers!",
+  "tags": ["motion", "events", "sprites"]
+}
+`;
 
   const schemaDescription = `
   RETURN ONLY JSON. No markdown.
   Structure Example:
-  ${JSON_EXAMPLE}
+  ${isScratch ? scratchExample : JSON_EXAMPLE}
   `;
 
   const systemPrompt = `You are a Computer Science teacher creating content for 5th graders. 
   ${schemaDescription}`;
 
-  const userPrompt = `Create a p5.js ${type}. Topic: "${topic}". Level: "${level}".
+  const platformName = isScratch ? 'Scratch' : 'p5.js';
+  
+  let roboticsGuidance = '';
+  if (isRobotics && isScratch) {
+    roboticsGuidance = `
+  
+  ROBOTICS-SPECIFIC GUIDANCE:
+  - Theory MUST include hardware connection instructions
+  - Steps MUST guide students through adding extensions and connecting hardware
+  - Include safety reminders (e.g. "Make sure robot has space to move!")
+  - Explain what will happen PHYSICALLY, not just in code
+  - Tags MUST include "robotics" and the hardware type (e.g. "ev3", "microbit")
+  - If topic mentions specific hardware (EV3, BOOST, micro:bit), focus on that hardware's blocks
+  `;
+  }
+  
+  const userPrompt = `Create a ${platformName} ${type}. Topic: "${topic}". Level: "${level}".
   ${typePrompt}
+  ${roboticsGuidance}
   
   CRITICAL INSTRUCTIONS:
   1. Audience: 10-year-olds. Simple, fun language.
-  2. Starter Code: Must use \\n for newlines. Comments included.
-  3. Steps: Use [NEXT] for pure observation steps if needed.
+  ${isScratch ? 
+    '2. Starter Code: Always use "{}" for Scratch lessons.\n  3. Steps: Refer to blocks by name (e.g. "move 10 steps block", "turn right 15 degrees").' : 
+    '2. Starter Code: Must use \\n for newlines. Comments included.\n  3. Steps: Use [NEXT] for pure observation steps if needed.'
+  }
   4. Tags: 3-5 concepts.
   `;
 
