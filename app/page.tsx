@@ -3,6 +3,11 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+/**
+ * Render a centered onboarding UI for the CanvasClassroom landing area.
+ *
+ * @returns JSX markup containing a full-height, centered container with a circular gradient logo badge showing "C", a "CanvasClassroom" title, and a "Welcome" subtitle.
+ */
 export default function HomePage() {
   // For Vite/React Router compatibility, this would redirect
   // In a real Next.js app, this would use Next.js routing
@@ -18,4 +23,3 @@ export default function HomePage() {
     </div>
   );
 }
-
