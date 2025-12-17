@@ -99,5 +99,3 @@ const JoinClass: React.FC<JoinClassProps> = ({ student, onClassJoined }) => {
 };
 
 export default JoinClass;
-
-

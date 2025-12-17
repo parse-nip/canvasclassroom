@@ -35,8 +35,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
           password,
         });
         if (signInError) throw signInError;
+        onAuthSuccess();
       } else {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -47,8 +48,15 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
           },
         });
         if (signUpError) throw signUpError;
+        
+        // Handle email confirmation flow
+        if (data.session) {
+          onAuthSuccess();
+        } else {
+          // Email confirmation required
+          setError('Please check your email to confirm your account before signing in.');
+        }
       }
-      onAuthSuccess();
     } catch (caughtError: any) {
       setError(caughtError.message);
     } finally {
@@ -191,5 +199,3 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 };
 
 export default AuthPage;
-
-

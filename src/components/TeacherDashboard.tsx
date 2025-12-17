@@ -108,15 +108,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   // New feature states
   const [toolsSubTab, setToolsSubTab] = useState<'export' | 'templates' | 'library' | 'backup' | 'bulk' | 'rubrics'>('export');
-  const [feedbackTemplates, setFeedbackTemplates] = useState<FeedbackTemplate[]>([
-    { id: '1', name: 'Great Work!', comment: 'Excellent job! Your code is clean and well-organized.', category: 'praise', createdBy: 'teacher1', createdAt: Date.now() },
-    { id: '2', name: 'Good Progress', comment: "Good progress! Keep practicing and you'll master this concept.", category: 'praise', createdBy: 'teacher1', createdAt: Date.now() },
-    { id: '3', name: 'Missing Semicolon', comment: 'Check your code for missing semicolons. Remember, every statement needs one!', category: 'syntax-error', createdBy: 'teacher1', createdAt: Date.now() },
-    { id: '4', name: 'Typo in Function', comment: 'There\'s a typo in one of your function names. Double-check your spelling!', category: 'syntax-error', createdBy: 'teacher1', createdAt: Date.now() },
-    { id: '5', name: 'Logic Issue', comment: 'Your code runs but doesn\'t produce the expected result. Review your conditions and loops.', category: 'logic-error', createdBy: 'teacher1', createdAt: Date.now() },
-    { id: '6', name: 'Try Different Approach', comment: 'Consider breaking this problem into smaller steps. What needs to happen first?', category: 'suggestion', createdBy: 'teacher1', createdAt: Date.now() },
-    { id: '7', name: 'Add Comments', comment: 'Try adding comments to explain what each section of your code does.', category: 'suggestion', createdBy: 'teacher1', createdAt: Date.now() }
-  ]);
+  const [feedbackTemplates, setFeedbackTemplates] = useState<FeedbackTemplate[]>([]);
   const [helpRequests, setHelpRequests] = useState<HelpRequest[]>([]);
   const [rubrics, setRubrics] = useState<Rubric[]>([]);
   const [selectedStudentForAnalytics, setSelectedStudentForAnalytics] = useState<Student | null>(null);
@@ -548,6 +540,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   // Student Roster Handlers
   const handleAddStudent = async (studentData: Omit<Student, 'id' | 'avatar'>) => {
     const newStudent = await supabaseService.createStudent(studentData);
+    
+    // Create enrollment for the student
+    await supabaseService.createEnrollment({
+      studentId: newStudent.id,
+      classId: classId,
+      status: 'approved',
+      enrolledAt: Date.now()
+    });
+    
     setRosterStudents(prev => [...prev, newStudent]);
   };
 
@@ -592,7 +593,31 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     }
   }, [classId]);
 
-  const handleEnrollmentUpdate = (enrollment: Enrollment) => {
+  // Load help requests for current class
+  React.useEffect(() => {
+    const loadHelpRequests = async () => {
+      const classHelpRequests = await supabaseService.getHelpRequests(classId);
+      setHelpRequests(classHelpRequests);
+    };
+    if (classId) {
+      loadHelpRequests();
+    }
+  }, [classId]);
+
+  // Load feedback templates
+  React.useEffect(() => {
+    const loadFeedbackTemplates = async () => {
+      const templates = await supabaseService.getFeedbackTemplates('teacher1'); // TODO: Get from auth context
+      setFeedbackTemplates(templates);
+    };
+    loadFeedbackTemplates();
+  }, []);
+
+  const handleEnrollmentUpdate = async (enrollment: Enrollment) => {
+    // Persist enrollment update to Supabase if status changed
+    if (enrollment.status === 'approved' || enrollment.status === 'rejected') {
+      await supabaseService.updateEnrollmentStatus(enrollment.id, enrollment.status);
+    }
     setEnrollments(prev => prev.map(e => e.id === enrollment.id ? enrollment : e));
   };
 
@@ -600,27 +625,29 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     setRosterStudents(prev => [...prev, student]);
   };
 
-  const handleAnnouncementUpdate = (announcement: Announcement) => {
-    setAnnouncements(prev => {
-      const existing = prev.find(a => a.id === announcement.id);
-      if (existing) {
-        return prev.map(a => a.id === announcement.id ? announcement : a);
-      }
-      return [...prev, announcement];
-    });
+  const handleAnnouncementUpdate = async (announcement: Announcement) => {
+    const existing = announcements.find(a => a.id === announcement.id);
+    if (existing) {
+      // Update existing announcement
+      const updated = await supabaseService.updateAnnouncement(announcement.id, announcement);
+      setAnnouncements(prev => prev.map(a => a.id === announcement.id ? updated : a));
+    } else {
+      // Create new announcement (already persisted by AnnouncementsManager)
+      setAnnouncements(prev => [...prev, announcement]);
+    }
   };
 
-  const handleAnnouncementDelete = (announcementId: string) => {
+  const handleAnnouncementDelete = async (announcementId: string) => {
+    await supabaseService.deleteAnnouncement(announcementId);
     setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
   };
 
   // Feedback Template Handlers
   const handleAddFeedbackTemplate = async (template: Omit<FeedbackTemplate, 'id' | 'createdAt'>) => {
-    const newTemplate: FeedbackTemplate = {
+    const newTemplate = await supabaseService.createFeedbackTemplate({
       ...template,
-      id: Date.now().toString(),
-      createdAt: Date.now()
-    };
+      createdBy: 'teacher1' // TODO: Get from auth context
+    });
     setFeedbackTemplates(prev => [...prev, newTemplate]);
   };
 
@@ -633,16 +660,19 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   // Help Queue Handlers
-  const handleResolveHelpRequest = (requestId: string) => {
-    setHelpRequests(prev => prev.map(r =>
-      r.id === requestId ? { ...r, status: 'resolved' as const, resolvedAt: Date.now() } : r
-    ));
+  const handleResolveHelpRequest = async (requestId: string) => {
+    const updated = await supabaseService.updateHelpRequest(requestId, {
+      status: 'resolved',
+      resolvedAt: Date.now()
+    });
+    setHelpRequests(prev => prev.map(r => r.id === requestId ? updated : r));
   };
 
-  const handleStartHelpingRequest = (requestId: string) => {
-    setHelpRequests(prev => prev.map(r =>
-      r.id === requestId ? { ...r, status: 'in-progress' as const } : r
-    ));
+  const handleStartHelpingRequest = async (requestId: string) => {
+    const updated = await supabaseService.updateHelpRequest(requestId, {
+      status: 'in-progress'
+    });
+    setHelpRequests(prev => prev.map(r => r.id === requestId ? updated : r));
   };
 
   // Lesson Library Handlers
