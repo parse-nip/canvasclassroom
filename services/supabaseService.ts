@@ -300,12 +300,14 @@ class SupabaseService {
 
   async createStudent(studentData: Partial<Pick<Student, 'id' | 'authUserId'>> & Omit<Student, 'id' | 'avatar'>): Promise<Student> {
     // Generate avatar initials
-    const initials = studentData.name
+    const initials = (studentData.name || '')
+      .trim()
       .split(' ')
-      .map(n => n[0])
+      .map(n => n?.[0])
+      .filter(Boolean)
       .join('')
       .toUpperCase()
-      .slice(0, 2);
+      .slice(0, 2) || '??';
 
     const { data, error } = await supabase
       .from('students')
@@ -325,7 +327,16 @@ class SupabaseService {
   }
 
   async updateStudent(studentId: string, updates: Partial<Student>): Promise<Student> {
-    const dbUpdates = studentToDb(updates);
+    const dbUpdates: any = {};
+
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
+    if (updates.email !== undefined) dbUpdates.email = updates.email;
+    if (updates.studentId !== undefined) dbUpdates.student_id = updates.studentId;
+    if (updates.enrolledAt !== undefined) dbUpdates.enrolled_at = updates.enrolledAt;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+    if (updates.authUserId !== undefined) dbUpdates.auth_user_id = updates.authUserId;
 
     const { data, error } = await supabase
       .from('students')
