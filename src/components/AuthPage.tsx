@@ -57,8 +57,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
           setError('Please check your email to confirm your account before signing in.');
         }
       }
-    } catch (caughtError: any) {
-      setError(caughtError.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -89,7 +89,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 <button
                   type="button"
                   onClick={() => setRole('teacher')}
-                  className={`cursor-pointer p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
+                  className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
                     role === 'teacher'
                       ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                       : 'border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800'
@@ -101,7 +101,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 <button
                   type="button"
                   onClick={() => setRole('student')}
-                  className={`cursor-pointer p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
+                  className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
                     role === 'student'
                       ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                       : 'border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800'
