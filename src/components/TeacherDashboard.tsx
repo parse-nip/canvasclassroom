@@ -543,15 +543,20 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleAddStudent = async (studentData: Omit<Student, 'id' | 'avatar'>) => {
     const newStudent = await supabaseService.createStudent(studentData);
     
-    // Create enrollment for the student
-    await supabaseService.createEnrollment({
-      studentId: newStudent.id,
-      classId: classId,
-      status: 'approved',
-      enrolledAt: Date.now()
-    });
-    
-    setRosterStudents(prev => [...prev, newStudent]);
+    try {
+      // Create enrollment for the student
+      await supabaseService.createEnrollment({
+        studentId: newStudent.id,
+        classId: classId,
+        status: 'approved',
+        enrolledAt: Date.now()
+      });
+      setRosterStudents(prev => [...prev, newStudent]);
+    } catch (err) {
+      console.error('Failed to create enrollment:', err);
+      // Optionally rollback student creation or notify user
+      throw err;
+    }
   };
 
   const handleUpdateStudent = async (studentId: string, updates: Partial<Student>) => {
@@ -618,11 +623,16 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   }, [teacherId]);
 
   const handleEnrollmentUpdate = async (enrollment: Enrollment) => {
-    // Persist enrollment update to Supabase if status changed
-    if (enrollment.status === 'approved' || enrollment.status === 'rejected') {
-      await supabaseService.updateEnrollmentStatus(enrollment.id, enrollment.status);
+    try {
+      // Persist enrollment update to Supabase if status changed
+      if (enrollment.status === 'approved' || enrollment.status === 'rejected') {
+        await supabaseService.updateEnrollmentStatus(enrollment.id, enrollment.status);
+      }
+      setEnrollments(prev => prev.map(e => e.id === enrollment.id ? enrollment : e));
+    } catch (err) {
+      console.error('Failed to update enrollment:', err);
+      throw err;
     }
-    setEnrollments(prev => prev.map(e => e.id === enrollment.id ? enrollment : e));
   };
 
   const handleStudentAdded = (student: Student) => {
@@ -630,20 +640,30 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleAnnouncementUpdate = async (announcement: Announcement) => {
-    const existing = announcements.find(a => a.id === announcement.id);
-    if (existing) {
-      // Update existing announcement
-      const updated = await supabaseService.updateAnnouncement(announcement.id, announcement);
-      setAnnouncements(prev => prev.map(a => a.id === announcement.id ? updated : a));
-    } else {
-      // Create new announcement (already persisted by AnnouncementsManager)
-      setAnnouncements(prev => [...prev, announcement]);
+    try {
+      const existing = announcements.find(a => a.id === announcement.id);
+      if (existing) {
+        // Update existing announcement
+        const updated = await supabaseService.updateAnnouncement(announcement.id, announcement);
+        setAnnouncements(prev => prev.map(a => a.id === announcement.id ? updated : a));
+      } else {
+        // Create new announcement (already persisted by AnnouncementsManager)
+        setAnnouncements(prev => [...prev, announcement]);
+      }
+    } catch (err) {
+      console.error('Failed to update announcement:', err);
+      throw err;
     }
   };
 
   const handleAnnouncementDelete = async (announcementId: string) => {
-    await supabaseService.deleteAnnouncement(announcementId);
-    setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
+    try {
+      await supabaseService.deleteAnnouncement(announcementId);
+      setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
+    } catch (err) {
+      console.error('Failed to delete announcement:', err);
+      throw err;
+    }
   };
 
   // Feedback Template Handlers
