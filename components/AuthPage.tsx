@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Button } from './ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/Card';
-import { FaChalkboardUser, FaUserAstronaut, FaEnvelope, FaLock, FaUser } from 'react-icons/fa6';
+import { FaChalkboardUser, FaUserAstronaut, FaEnvelope, FaLock, FaUser, FaCircleCheck } from 'react-icons/fa6';
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
@@ -16,11 +16,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setConfirmationSent(false);
 
     try {
       if (isLogin) {
@@ -29,8 +31,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
           password,
         });
         if (error) throw error;
+        onAuthSuccess();
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -41,8 +44,16 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
           },
         });
         if (error) throw error;
+        
+        // Check if email confirmation is required
+        if (data.user && !data.session) {
+          // Email confirmation required
+          setConfirmationSent(true);
+        } else if (data.session) {
+          // User is immediately signed in (no email confirmation)
+          onAuthSuccess();
+        }
       }
-      onAuthSuccess();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
@@ -152,23 +163,53 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
               </div>
             )}
 
-            <Button
-              type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
-              disabled={loading}
-            >
-              {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
-            </Button>
+            {confirmationSent && (
+              <div className="p-4 rounded-md bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm flex items-start gap-3">
+                <FaCircleCheck className="text-green-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Check your email!</p>
+                  <p className="mt-1 text-green-600 dark:text-green-300">
+                    We've sent a confirmation link to <strong>{email}</strong>. Click the link to activate your account.
+                  </p>
+                </div>
+              </div>
+            )}
 
-            <div className="text-center mt-4">
-              <button
+            {!confirmationSent && (
+              <>
+                <Button
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                  disabled={loading}
+                >
+                  {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
+                </Button>
+
+                <div className="text-center mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsLogin(!isLogin)}
+                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {confirmationSent && (
+              <Button
                 type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  setConfirmationSent(false);
+                  setIsLogin(true);
+                }}
               >
-                {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-              </button>
-            </div>
+                Back to Sign In
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

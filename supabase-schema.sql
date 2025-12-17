@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS rubrics (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   description TEXT,
+  class_id UUID REFERENCES classes(id) ON DELETE CASCADE,
   lesson_id UUID REFERENCES lessons(id) ON DELETE SET NULL,
   criteria JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
@@ -337,10 +338,10 @@ CREATE POLICY "Accommodations modify teacher" ON accommodations
   WITH CHECK (EXISTS (SELECT 1 FROM classes c WHERE c.id = accommodations.class_id AND c.teacher_id = auth.uid()::text));
 
 DROP POLICY IF EXISTS "Allow all operations" ON feedback_templates;
-CREATE POLICY "Feedback templates teacher owned" ON feedback_templates
+CREATE POLICY "Feedback templates owner only" ON feedback_templates
   FOR ALL
-  USING (auth.uid() IS NOT NULL)
-  WITH CHECK (auth.uid() IS NOT NULL);
+  USING (auth.uid()::text = created_by)
+  WITH CHECK (auth.uid()::text = created_by);
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_students_auth_user_id ON students(auth_user_id);
@@ -356,6 +357,9 @@ BEGIN
     NEW.id,
     true
   );
+  RETURN NEW;
+EXCEPTION WHEN unique_violation THEN
+  -- Silently ignore if student record already exists
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

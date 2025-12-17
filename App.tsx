@@ -193,9 +193,7 @@ const App: React.FC = () => {
       if (userRole === 'teacher') {
         const loadedClasses = await supabaseService.getClasses(session.user.id);
         setClasses(loadedClasses);
-        if (loadedClasses.length > 0 && !currentClassId) {
-          setCurrentClassId(loadedClasses[0].id);
-        }
+        // currentClassId will be set by the separate effect watching classes
       } else if (userRole === 'student') {
         try {
           setErrorMessage(null);
@@ -263,9 +261,7 @@ const App: React.FC = () => {
                 }));
 
               setClasses(studentClasses);
-              if (!currentClassId && studentClasses[0]) {
-                setCurrentClassId(studentClasses[0].id);
-              }
+              // currentClassId will be set by the separate effect watching classes
             }
           }
         } catch (loadError) {
@@ -277,7 +273,15 @@ const App: React.FC = () => {
     };
 
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, userRole]);
+
+  // Set initial class when classes load
+  useEffect(() => {
+    if (classes.length > 0 && !currentClassId) {
+      setCurrentClassId(classes[0].id);
+    }
+  }, [classes, currentClassId]);
 
   // Load class data when class changes
   useEffect(() => {
