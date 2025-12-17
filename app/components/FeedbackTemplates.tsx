@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FeedbackTemplate } from '../types';
+import { FeedbackTemplate } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { FaPlus, FaPenToSquare, FaTrash, FaComments, FaStar, FaTriangleExclamation, FaCode, FaLightbulb } from 'react-icons/fa6';

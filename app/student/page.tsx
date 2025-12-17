@@ -1,12 +1,13 @@
+'use client';
 
 import React, { useState } from 'react';
-import { LessonPlan, Submission, Unit, StepHistory } from '../types';
-import { Card, CardContent } from './ui/Card';
-import { Button } from './ui/Button';
-import P5Editor from './P5Editor';
-import ScratchEditor from './ScratchEditor';
+import { LessonPlan, Submission, Unit, StepHistory } from '../../types';
+import { Card, CardContent } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import P5Editor from '../components/P5Editor';
+import ScratchEditor from '../components/ScratchEditor';
 import { FaChevronRight, FaCircleCheck, FaLightbulb, FaRobot, FaPaperPlane, FaArrowLeft, FaLock, FaSpinner, FaCheck, FaBookOpen, FaStar, FaPen, FaCommentDots, FaEye, FaClipboardCheck, FaArrowRotateLeft, FaXmark, FaClock } from 'react-icons/fa6';
-import { analyzeStudentCode, validateStep, explainError } from '../services/openRouterService';
+import { analyzeStudentCode, validateStep, explainError } from '../../services/openRouterService';
 
 interface StudentViewProps {
     lessons: LessonPlan[];

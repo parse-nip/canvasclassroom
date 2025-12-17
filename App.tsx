@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import TeacherDashboard from './components/TeacherDashboard';
-import StudentView from './components/StudentView';
-import TutorialOverlay, { TutorialStep, SubStep } from './components/TutorialOverlay';
-import ClassManager from './components/ClassManager';
-import StudentRoster from './components/StudentRoster';
+import TeacherDashboard from './app/components/TeacherDashboard';
+import StudentView from './app/components/StudentView';
+import TutorialOverlay, { TutorialStep, SubStep } from './app/components/TutorialOverlay';
+import ClassManager from './app/components/ClassManager';
+import StudentRoster from './app/components/StudentRoster';
 import { LessonPlan, Student, Submission, Unit, StepHistory, Class } from './types';
 import { supabaseService } from './services/supabaseService';
 import { FaChalkboardUser, FaUserAstronaut, FaMoon, FaSun, FaQuestion } from 'react-icons/fa6';

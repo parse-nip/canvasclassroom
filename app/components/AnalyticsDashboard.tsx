@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { LessonPlan, Submission, Student, Unit } from '../types';
+import { LessonPlan, Submission, Student, Unit } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { FaChartLine, FaUsers, FaCircleCheck, FaClock, FaTriangleExclamation, FaTrophy } from 'react-icons/fa6';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';

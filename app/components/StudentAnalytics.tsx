@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { LessonPlan, Submission, Student, StepHistory } from '../types';
+import { LessonPlan, Submission, Student, StepHistory } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { FaChartLine, FaCircleCheck, FaClock, FaTrophy, FaTriangleExclamation, FaArrowLeft, FaBookOpen, FaCode } from 'react-icons/fa6';

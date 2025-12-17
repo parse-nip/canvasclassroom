@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Class } from '../types';
+import { Class } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { FaPlus, FaUsers, FaCopy, FaTrash, FaPenToSquare, FaChevronDown } from 'react-icons/fa6';

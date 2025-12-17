@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Announcement } from '../types';
+import { Announcement } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { FaPlus, FaPenToSquare, FaTrash, FaBullhorn, FaCalendarDays, FaUsers } from 'react-icons/fa6';
-import { supabaseService } from '../services/supabaseService';
+import { supabaseService } from '../../services/supabaseService';
 
 interface AnnouncementsManagerProps {
   classId: string;

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Enrollment, Student } from '../types';
+import { Enrollment, Student } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { FaCheck, FaXmark, FaUserPlus, FaClock, FaCopy } from 'react-icons/fa6';
-import { supabaseService } from '../services/supabaseService';
+import { supabaseService } from '../../services/supabaseService';
 
 interface EnrollmentManagerProps {
   classId: string;

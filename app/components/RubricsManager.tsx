@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Rubric, RubricCriterion, LessonPlan } from '../types';
+import { Rubric, RubricCriterion, LessonPlan } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { FaPlus, FaPenToSquare, FaTrash, FaClipboardList, FaCopy, FaLink } from 'react-icons/fa6';
