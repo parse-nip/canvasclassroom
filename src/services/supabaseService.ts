@@ -193,7 +193,7 @@ class SupabaseService {
         .from('classes')
         .select('id')
         .eq('class_code', classCode)
-        .single();
+        .maybeSingle();
 
       if (!data) {
         isUnique = true;
@@ -220,6 +220,21 @@ class SupabaseService {
     }
 
     return dbToClass(data);
+  }
+
+  async getClass(classId: string): Promise<Class | null> {
+    const { data, error } = await supabase
+      .from('classes')
+      .select('*')
+      .eq('id', classId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching class:', error);
+      return null;
+    }
+
+    return data ? dbToClass(data) : null;
   }
 
   async updateClass(classId: string, updates: Partial<Class>): Promise<Class> {
@@ -998,6 +1013,38 @@ class SupabaseService {
     }
 
     return dbToFeedbackTemplate(data);
+  }
+
+  async updateFeedbackTemplate(templateId: string, updates: Partial<FeedbackTemplate>): Promise<FeedbackTemplate> {
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.comment !== undefined) dbUpdates.comment = updates.comment;
+    if (updates.category !== undefined) dbUpdates.category = updates.category;
+
+    const { data, error } = await supabase
+      .from('feedback_templates')
+      .update(dbUpdates)
+      .eq('id', templateId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating feedback template:', error);
+      throw error;
+    }
+    return dbToFeedbackTemplate(data);
+  }
+
+  async deleteFeedbackTemplate(templateId: string): Promise<void> {
+    const { error } = await supabase
+      .from('feedback_templates')
+      .delete()
+      .eq('id', templateId);
+
+    if (error) {
+      console.error('Error deleting feedback template:', error);
+      throw error;
+    }
   }
 }
 

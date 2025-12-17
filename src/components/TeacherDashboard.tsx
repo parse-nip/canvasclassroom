@@ -554,7 +554,12 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       setRosterStudents(prev => [...prev, newStudent]);
     } catch (err) {
       console.error('Failed to create enrollment:', err);
-      // Optionally rollback student creation or notify user
+      // Rollback: deactivate the orphaned student record
+      try {
+        await supabaseService.updateStudent(newStudent.id, { isActive: false });
+      } catch (rollbackErr) {
+        console.error('Failed to rollback student creation:', rollbackErr);
+      }
       throw err;
     }
   };
@@ -1714,6 +1719,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <div className="p-4 overflow-y-auto flex-1">
               <FeedbackTemplates
                 templates={feedbackTemplates}
+                teacherId={teacherId}
                 onAddTemplate={handleAddFeedbackTemplate}
                 onUpdateTemplate={handleUpdateFeedbackTemplate}
                 onDeleteTemplate={handleDeleteFeedbackTemplate}
@@ -1844,6 +1850,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {activeTab === 'communication' && (
         <AnnouncementsManager
           classId={classId}
+          teacherId={teacherId}
           announcements={announcements}
           students={rosterStudents.map(s => ({ id: s.id, name: s.name }))}
           onAnnouncementUpdate={handleAnnouncementUpdate}
@@ -1931,6 +1938,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             {toolsSubTab === 'templates' && (
               <FeedbackTemplates
                 templates={feedbackTemplates}
+                teacherId={teacherId}
                 onAddTemplate={handleAddFeedbackTemplate}
                 onUpdateTemplate={handleUpdateFeedbackTemplate}
                 onDeleteTemplate={handleDeleteFeedbackTemplate}
@@ -2120,6 +2128,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <ClassManager
                 classes={classes}
                 currentClassId={classId}
+                teacherId={teacherId}
                 onSelectClass={(id) => { onSelectClass(id); setShowClassManager(false); }}
                 onCreateClass={onCreateClass}
                 onUpdateClass={onUpdateClass}

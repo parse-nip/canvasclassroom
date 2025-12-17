@@ -7,6 +7,7 @@ import { supabaseService } from '../services/supabaseService';
 
 interface AnnouncementsManagerProps {
   classId: string;
+  teacherId: string;
   announcements: Announcement[];
   students: { id: string; name: string }[];
   onAnnouncementUpdate: (announcement: Announcement) => void;
@@ -15,6 +16,7 @@ interface AnnouncementsManagerProps {
 
 const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
   classId,
+  teacherId,
   announcements,
   students,
   onAnnouncementUpdate,
@@ -69,7 +71,7 @@ const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
       title: title.trim(),
       content: content.trim(),
       scheduledAt: scheduledDate ? new Date(scheduledDate).getTime() : undefined,
-      createdBy: 'teacher1', // TODO: Get from auth
+      createdBy: teacherId,
       targetStudentIds: selectAll || targetStudentIds.length === 0 ? undefined : targetStudentIds
     };
 

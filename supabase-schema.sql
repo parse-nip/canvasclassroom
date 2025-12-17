@@ -291,18 +291,58 @@ CREATE POLICY "Submissions delete student or teacher" ON submissions
     OR EXISTS (SELECT 1 FROM classes c WHERE c.id = submissions.class_id AND c.teacher_id = auth.uid()::text)
   );
 
--- Keep other tables teacher-owned for now
+-- Rubrics: teacher owned (with fallback for NULL class_id via lesson_id), students can read
 DROP POLICY IF EXISTS "Allow all operations" ON rubrics;
+DROP POLICY IF EXISTS "Rubrics teacher owned" ON rubrics;
 CREATE POLICY "Rubrics teacher owned" ON rubrics
   FOR ALL
-  USING (EXISTS (SELECT 1 FROM classes c WHERE c.id = rubrics.class_id AND c.teacher_id = auth.uid()::text))
-  WITH CHECK (EXISTS (SELECT 1 FROM classes c WHERE c.id = rubrics.class_id AND c.teacher_id = auth.uid()::text));
+  USING (
+    EXISTS (SELECT 1 FROM classes c WHERE c.id = rubrics.class_id AND c.teacher_id = auth.uid()::text)
+    OR (rubrics.class_id IS NULL AND rubrics.lesson_id IS NOT NULL 
+        AND EXISTS (SELECT 1 FROM lessons l JOIN classes c ON l.class_id = c.id 
+                    WHERE l.id = rubrics.lesson_id AND c.teacher_id = auth.uid()::text))
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM classes c WHERE c.id = rubrics.class_id AND c.teacher_id = auth.uid()::text)
+    OR (rubrics.class_id IS NULL AND rubrics.lesson_id IS NOT NULL 
+        AND EXISTS (SELECT 1 FROM lessons l JOIN classes c ON l.class_id = c.id 
+                    WHERE l.id = rubrics.lesson_id AND c.teacher_id = auth.uid()::text))
+  );
+CREATE POLICY "Rubrics student read" ON rubrics
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM enrollments e
+      JOIN students s ON s.id = e.student_id
+      WHERE (e.class_id = rubrics.class_id OR rubrics.class_id IS NULL)
+        AND s.auth_user_id = auth.uid()::text 
+        AND e.status = 'approved'
+    )
+  );
 
+-- Announcements: teacher manages, enrolled students can read
 DROP POLICY IF EXISTS "Allow all operations" ON announcements;
+DROP POLICY IF EXISTS "Announcements teacher owned" ON announcements;
 CREATE POLICY "Announcements teacher owned" ON announcements
   FOR ALL
   USING (EXISTS (SELECT 1 FROM classes c WHERE c.id = announcements.class_id AND c.teacher_id = auth.uid()::text))
   WITH CHECK (EXISTS (SELECT 1 FROM classes c WHERE c.id = announcements.class_id AND c.teacher_id = auth.uid()::text));
+CREATE POLICY "Announcements student read" ON announcements
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM enrollments e
+      JOIN students s ON s.id = e.student_id
+      WHERE e.class_id = announcements.class_id 
+        AND s.auth_user_id = auth.uid()::text 
+        AND e.status = 'approved'
+        AND (
+          announcements.target_student_ids IS NULL 
+          OR announcements.target_student_ids = '{}'
+          OR e.student_id = ANY(announcements.target_student_ids)
+        )
+    )
+  );
 
 DROP POLICY IF EXISTS "Allow all operations" ON help_requests;
 CREATE POLICY "Help requests student or teacher" ON help_requests

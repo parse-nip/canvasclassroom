@@ -150,7 +150,7 @@ const App: React.FC = () => {
 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [copiedClassCode, setCopiedClassCode] = useState(false);
-  const [, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Tutorial State
   const [tutorialActive, setTutorialActive] = useState(false);
@@ -164,7 +164,8 @@ const App: React.FC = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
-        setUserRole(session.user.user_metadata.role);
+        const role = session.user.user_metadata.role;
+        setUserRole(role === 'teacher' || role === 'student' ? role : null);
       }
       setLoading(false);
     });
@@ -174,7 +175,8 @@ const App: React.FC = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        setUserRole(session.user.user_metadata.role);
+        const role = session.user.user_metadata.role;
+        setUserRole(role === 'teacher' || role === 'student' ? role : null);
       } else {
         setUserRole(null);
         setClasses([]);
@@ -191,22 +193,16 @@ const App: React.FC = () => {
 
     const loadData = async () => {
       if (userRole === 'teacher') {
-        const loadedClasses = await supabaseService.getClasses(session.user.id);
-        setClasses(loadedClasses);
-        // currentClassId will be set by the separate effect watching classes
+        try {
+          const loadedClasses = await supabaseService.getClasses(session.user.id);
+          setClasses(loadedClasses);
+        } catch (error) {
+          console.error('Error loading teacher classes:', error);
+          setErrorMessage('Unable to load your classes.');
+        }
       } else if (userRole === 'student') {
         try {
           setErrorMessage(null);
-          // Find enrollments for this student
-          // We need to fetch student profile first or ensure it exists
-          // Ideally we fetch student by auth ID, but our schema links student to auth via... wait.
-          // The schema has `student_id` (text) but `id` (uuid).
-          // Let's assume the Student ID in our `students` table matches the Auth ID for now, 
-          // or we need a way to look it up.
-          // Current implementation of createStudent uses random ID or import.
-          
-          // For signed up students, we need to ensure a record exists in `students` table
-          // matching their Auth ID.
           let studentData = await supabaseService.getStudentByAuthId(session.user.id);
 
           if (!studentData) {
@@ -288,18 +284,23 @@ const App: React.FC = () => {
     if (!currentClassId) return;
 
     const loadClassData = async () => {
-      // Load units, lessons, students, and submissions for the current class
-      const [loadedUnits, loadedLessons, loadedStudents, loadedSubmissions] = await Promise.all([
-        supabaseService.getUnits(currentClassId),
-        supabaseService.getLessons(currentClassId),
-        supabaseService.getStudents(currentClassId),
-        supabaseService.getSubmissions(currentClassId)
-      ]);
+      try {
+        // Load units, lessons, students, and submissions for the current class
+        const [loadedUnits, loadedLessons, loadedStudents, loadedSubmissions] = await Promise.all([
+          supabaseService.getUnits(currentClassId),
+          supabaseService.getLessons(currentClassId),
+          supabaseService.getStudents(currentClassId),
+          supabaseService.getSubmissions(currentClassId)
+        ]);
 
-      setUnits(loadedUnits);
-      setLessons(loadedLessons);
-      setStudents(loadedStudents);
-      setSubmissions(loadedSubmissions);
+        setUnits(loadedUnits);
+        setLessons(loadedLessons);
+        setStudents(loadedStudents);
+        setSubmissions(loadedSubmissions);
+      } catch (error) {
+        console.error('Error loading class data:', error);
+        setErrorMessage('Unable to load class data.');
+      }
     };
 
     loadClassData();
@@ -374,15 +375,25 @@ const App: React.FC = () => {
     if (!currentClassId) return;
     const newStudent = await supabaseService.createStudent(studentData);
     
-    // Create enrollment for the student
-    await supabaseService.createEnrollment({
-      studentId: newStudent.id,
-      classId: currentClassId,
-      status: 'approved',
-      enrolledAt: Date.now()
-    });
-    
-    setStudents(prev => [...prev, newStudent]);
+    try {
+      // Create enrollment for the student
+      await supabaseService.createEnrollment({
+        studentId: newStudent.id,
+        classId: currentClassId,
+        status: 'approved',
+        enrolledAt: Date.now()
+      });
+      setStudents(prev => [...prev, newStudent]);
+    } catch (enrollError) {
+      console.error('Error creating enrollment:', enrollError);
+      setErrorMessage('Student created but enrollment failed.');
+      // Rollback: deactivate the orphaned student
+      try {
+        await supabaseService.updateStudent(newStudent.id, { isActive: false });
+      } catch (rollbackErr) {
+        console.error('Failed to rollback student creation:', rollbackErr);
+      }
+    }
   };
 
   const handleUpdateStudent = async (studentId: string, updates: Partial<Student>) => {
@@ -587,15 +598,43 @@ const App: React.FC = () => {
     setCurrentClassId(null);
   };
 
-  const handleClassJoined = (classId: string) => {
+  const handleClassJoined = async (classId: string) => {
     setCurrentClassId(classId);
-    // Reload classes to show the new one
-    // In a real app we'd just fetch the specific class and add to state
-    window.location.reload(); // Simple reload for now to refresh state
+    // Fetch the joined class and add to state
+    try {
+      const joinedClass = await supabaseService.getClass(classId);
+      if (joinedClass) {
+        setClasses(prev => {
+          // Only add if not already present
+          if (prev.some(c => c.id === classId)) return prev;
+          return [...prev, joinedClass];
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching joined class:', error);
+      // Still set currentClassId, class list will refresh on next load
+    }
   };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading...</div>;
+  }
+
+  // Display error message if present
+  if (errorMessage && !session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+        <div className="text-center">
+          <div className="text-red-500 text-lg mb-4">{errorMessage}</div>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!session) {
@@ -662,7 +701,7 @@ const App: React.FC = () => {
 
             <div className="flex items-center gap-3">
               <div className="text-sm text-slate-600 dark:text-slate-400">
-                {session.user.user_metadata.name} <span className="opacity-50">({userRole === 'teacher' ? 'Teacher' : 'Student'})</span>
+                {session.user.user_metadata.name || session.user.email || 'User'} <span className="opacity-50">({userRole === 'teacher' ? 'Teacher' : 'Student'})</span>
               </div>
               <button
                 onClick={handleSignOut}
@@ -721,6 +760,7 @@ const App: React.FC = () => {
                 <ClassManager
                   classes={classes}
                   currentClassId={currentClassId}
+                  teacherId={session.user.id}
                   onSelectClass={handleSelectClass}
                   onCreateClass={handleCreateClass}
                   onUpdateClass={handleUpdateClass}
