@@ -182,19 +182,165 @@ ALTER TABLE help_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE accommodations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedback_templates ENABLE ROW LEVEL SECURITY;
 
--- Basic RLS policies (allow all for now - customize based on your auth needs)
--- For production, you should implement proper authentication and policies
-CREATE POLICY "Allow all operations" ON classes FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON students FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON enrollments FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON units FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON lessons FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON submissions FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON rubrics FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON announcements FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON help_requests FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON accommodations FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON feedback_templates FOR ALL USING (true);
+-- Replace permissive policies with safer defaults
+
+-- Students: only the owner can access their row
+DROP POLICY IF EXISTS "Allow all operations" ON students;
+CREATE POLICY "Students select own" ON students FOR SELECT USING (auth.uid()::text = auth_user_id);
+CREATE POLICY "Students update own" ON students FOR UPDATE USING (auth.uid()::text = auth_user_id) WITH CHECK (auth.uid()::text = auth_user_id);
+CREATE POLICY "Students delete own" ON students FOR DELETE USING (auth.uid()::text = auth_user_id);
+CREATE POLICY "Students insert self" ON students FOR INSERT WITH CHECK (auth.uid()::text = auth_user_id);
+
+-- Classes: teacher owns the class
+DROP POLICY IF EXISTS "Allow all operations" ON classes;
+CREATE POLICY "Teachers manage own classes" ON classes
+  FOR ALL
+  USING (auth.uid()::text = teacher_id)
+  WITH CHECK (auth.uid()::text = teacher_id);
+
+-- Enrollments: student or class teacher can see; student can manage own enrollment; teacher can manage their class enrollments
+DROP POLICY IF EXISTS "Allow all operations" ON enrollments;
+CREATE POLICY "Enrollments select student or teacher" ON enrollments
+  FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = enrollments.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = enrollments.class_id AND c.teacher_id = auth.uid()::text)
+  );
+CREATE POLICY "Enrollments modify student" ON enrollments
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = enrollments.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = enrollments.class_id AND c.teacher_id = auth.uid()::text)
+  );
+CREATE POLICY "Enrollments update student or teacher" ON enrollments
+  FOR UPDATE
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = enrollments.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = enrollments.class_id AND c.teacher_id = auth.uid()::text)
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = enrollments.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = enrollments.class_id AND c.teacher_id = auth.uid()::text)
+  );
+CREATE POLICY "Enrollments delete student or teacher" ON enrollments
+  FOR DELETE
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = enrollments.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = enrollments.class_id AND c.teacher_id = auth.uid()::text)
+  );
+
+-- Units and lessons: teachers manage their classes; enrolled students can read
+DROP POLICY IF EXISTS "Allow all operations" ON units;
+CREATE POLICY "Units select teacher or enrolled student" ON units
+  FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM classes c WHERE c.id = units.class_id AND c.teacher_id = auth.uid()::text)
+    OR EXISTS (
+      SELECT 1 FROM enrollments e
+      JOIN students s ON s.id = e.student_id
+      WHERE e.class_id = units.class_id AND s.auth_user_id = auth.uid()::text AND e.status = 'approved'
+    )
+  );
+CREATE POLICY "Units modify teacher" ON units
+  FOR ALL
+  USING (EXISTS (SELECT 1 FROM classes c WHERE c.id = units.class_id AND c.teacher_id = auth.uid()::text))
+  WITH CHECK (EXISTS (SELECT 1 FROM classes c WHERE c.id = units.class_id AND c.teacher_id = auth.uid()::text));
+
+DROP POLICY IF EXISTS "Allow all operations" ON lessons;
+CREATE POLICY "Lessons select teacher or enrolled student" ON lessons
+  FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM classes c WHERE c.id = lessons.class_id AND c.teacher_id = auth.uid()::text)
+    OR EXISTS (
+      SELECT 1 FROM enrollments e
+      JOIN students s ON s.id = e.student_id
+      WHERE e.class_id = lessons.class_id AND s.auth_user_id = auth.uid()::text AND e.status = 'approved'
+    )
+  );
+CREATE POLICY "Lessons modify teacher" ON lessons
+  FOR ALL
+  USING (EXISTS (SELECT 1 FROM classes c WHERE c.id = lessons.class_id AND c.teacher_id = auth.uid()::text))
+  WITH CHECK (EXISTS (SELECT 1 FROM classes c WHERE c.id = lessons.class_id AND c.teacher_id = auth.uid()::text));
+
+-- Submissions: student owner or class teacher
+DROP POLICY IF EXISTS "Allow all operations" ON submissions;
+CREATE POLICY "Submissions select student or teacher" ON submissions
+  FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = submissions.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = submissions.class_id AND c.teacher_id = auth.uid()::text)
+  );
+CREATE POLICY "Submissions insert student" ON submissions
+  FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM students s WHERE s.id = submissions.student_id AND s.auth_user_id = auth.uid()::text));
+CREATE POLICY "Submissions update student or teacher" ON submissions
+  FOR UPDATE
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = submissions.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = submissions.class_id AND c.teacher_id = auth.uid()::text)
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = submissions.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = submissions.class_id AND c.teacher_id = auth.uid()::text)
+  );
+CREATE POLICY "Submissions delete student or teacher" ON submissions
+  FOR DELETE
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = submissions.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = submissions.class_id AND c.teacher_id = auth.uid()::text)
+  );
+
+-- Keep other tables teacher-owned for now
+DROP POLICY IF EXISTS "Allow all operations" ON rubrics;
+CREATE POLICY "Rubrics teacher owned" ON rubrics
+  FOR ALL
+  USING (EXISTS (SELECT 1 FROM classes c WHERE c.id = rubrics.class_id AND c.teacher_id = auth.uid()::text))
+  WITH CHECK (EXISTS (SELECT 1 FROM classes c WHERE c.id = rubrics.class_id AND c.teacher_id = auth.uid()::text));
+
+DROP POLICY IF EXISTS "Allow all operations" ON announcements;
+CREATE POLICY "Announcements teacher owned" ON announcements
+  FOR ALL
+  USING (EXISTS (SELECT 1 FROM classes c WHERE c.id = announcements.class_id AND c.teacher_id = auth.uid()::text))
+  WITH CHECK (EXISTS (SELECT 1 FROM classes c WHERE c.id = announcements.class_id AND c.teacher_id = auth.uid()::text));
+
+DROP POLICY IF EXISTS "Allow all operations" ON help_requests;
+CREATE POLICY "Help requests student or teacher" ON help_requests
+  FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = help_requests.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = help_requests.class_id AND c.teacher_id = auth.uid()::text)
+  );
+CREATE POLICY "Help requests modify student" ON help_requests
+  FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM students s WHERE s.id = help_requests.student_id AND s.auth_user_id = auth.uid()::text));
+CREATE POLICY "Help requests update student or teacher" ON help_requests
+  FOR UPDATE
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = help_requests.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = help_requests.class_id AND c.teacher_id = auth.uid()::text)
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = help_requests.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = help_requests.class_id AND c.teacher_id = auth.uid()::text)
+  );
+
+DROP POLICY IF EXISTS "Allow all operations" ON accommodations;
+CREATE POLICY "Accommodations student or teacher" ON accommodations
+  FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM students s WHERE s.id = accommodations.student_id AND s.auth_user_id = auth.uid()::text)
+    OR EXISTS (SELECT 1 FROM classes c WHERE c.id = accommodations.class_id AND c.teacher_id = auth.uid()::text)
+  );
+CREATE POLICY "Accommodations modify teacher" ON accommodations
+  FOR ALL
+  USING (EXISTS (SELECT 1 FROM classes c WHERE c.id = accommodations.class_id AND c.teacher_id = auth.uid()::text))
+  WITH CHECK (EXISTS (SELECT 1 FROM classes c WHERE c.id = accommodations.class_id AND c.teacher_id = auth.uid()::text));
+
+DROP POLICY IF EXISTS "Allow all operations" ON feedback_templates;
+CREATE POLICY "Feedback templates teacher owned" ON feedback_templates
+  FOR ALL
+  USING (auth.uid() IS NOT NULL)
+  WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_students_auth_user_id ON students(auth_user_id);

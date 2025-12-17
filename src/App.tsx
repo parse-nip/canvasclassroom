@@ -598,6 +598,11 @@ const App: React.FC = () => {
     return <AuthPage onAuthSuccess={() => {}} />;
   }
 
+  // Ensure student profile is loaded before rendering student views
+  if (userRole === 'student' && !studentProfile) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading profile...</div>;
+  }
+
   // If student is logged in but hasn't joined any class (and currentClassId is null), show Join Class
   if (userRole === 'student' && !currentClassId && studentProfile) {
     return <JoinClass student={studentProfile} onClassJoined={handleClassJoined} />;
@@ -727,7 +732,7 @@ const App: React.FC = () => {
             units={units}
             onSubmitLesson={handleSubmitLesson}
             onUpdateProgress={handleUpdateProgress}
-            submissions={submissions.filter(s => s.studentId === (studentProfile?.id || session.user.id))}
+            submissions={submissions.filter(s => studentProfile && s.studentId === studentProfile.id)}
           />
         )}
       </main>
