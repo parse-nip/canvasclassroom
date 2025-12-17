@@ -33,11 +33,13 @@ All tables have:
 
 ## Your Supabase Project Details
 
-**Project URL:** `https://hextgwydmgdxikxckvpk.supabase.co`
+⚠️ **SECURITY WARNING:** Never commit real API keys or project URLs to version control. The values below are placeholders - replace them with your actual Supabase project credentials from your Supabase dashboard.
+
+**Project URL:** `https://your-project-ref.supabase.co`
 
 **API Keys Available:**
-- Legacy Anon Key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhleHRnd3lkbWdkeGlreGNrdnBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NDUxNTksImV4cCI6MjA4MTUyMTE1OX0.yRMPtaskxiOR9L9ipix5SXzxrHQCSoqks5mLvMbODNY`
-- Modern Publishable Key: `sb_publishable_oo7B5oWjmhGBTA6LBuqgsg_PizEE_l7`
+- Legacy Anon Key: `your-anon-key-here`
+- Modern Publishable Key: `your-publishable-key-here`
 
 ## Next Steps
 
@@ -46,8 +48,8 @@ All tables have:
 Create a `.env` file in your project root with:
 
 ```env
-VITE_SUPABASE_URL=https://hextgwydmgdxikxckvpk.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhleHRnd3lkbWdkeGlreGNrdnBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NDUxNTksImV4cCI6MjA4MTUyMTE1OX0.yRMPtaskxiOR9L9ipix5SXzxrHQCSoqks5mLvMbODNY
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
 **Note:** You can use either the legacy anon key or the modern publishable key. The code currently uses the anon key format.

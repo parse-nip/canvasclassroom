@@ -33,18 +33,22 @@ const dbToStudent = (row: any): Student => ({
   studentId: row.student_id,
   enrolledAt: row.enrolled_at,
   notes: row.notes,
-  isActive: row.is_active
+  isActive: row.is_active,
+  authUserId: row.auth_user_id
 });
 
 // Helper function to convert Student to database row
 const studentToDb = (studentData: Partial<Student>): any => ({
+  // Include explicit id when provided (e.g., to match Auth user id)
+  id: studentData.id,
   name: studentData.name,
   avatar: studentData.avatar,
   email: studentData.email,
   student_id: studentData.studentId,
   enrolled_at: studentData.enrolledAt,
   notes: studentData.notes,
-  is_active: studentData.isActive
+  is_active: studentData.isActive,
+  auth_user_id: studentData.authUserId
 });
 
 // Helper function to convert database row to Enrollment
@@ -178,19 +182,26 @@ class SupabaseService {
     // Generate 6-digit class code
     let classCode: string;
     let isUnique = false;
-    
-    // Ensure unique class code
-    while (!isUnique) {
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    // Ensure unique class code with safeguard against infinite loop
+    while (!isUnique && attempts < maxAttempts) {
+      attempts++;
       classCode = Math.floor(100000 + Math.random() * 900000).toString();
       const { data } = await supabase
         .from('classes')
         .select('id')
         .eq('class_code', classCode)
         .single();
-      
+
       if (!data) {
         isUnique = true;
       }
+    }
+
+    if (!isUnique) {
+      throw new Error('Unable to generate unique class code. Please try again.');
     }
 
     const { data, error } = await supabase
@@ -263,11 +274,31 @@ class SupabaseService {
     }
 
     return (data || [])
+      .filter((row: any) => !!row?.students)
       .map((row: any) => dbToStudent(row.students))
       .filter((s: Student) => s.isActive);
   }
 
-  async createStudent(studentData: Omit<Student, 'id' | 'avatar'>): Promise<Student> {
+  async getStudentByAuthId(authUserId: string): Promise<Student | null> {
+    const { data, error } = await supabase
+      .from('students')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows found
+        return null;
+      }
+      console.error('Error fetching student by auth ID:', error);
+      throw error;
+    }
+
+    return dbToStudent(data);
+  }
+
+  async createStudent(studentData: Partial<Pick<Student, 'id' | 'authUserId'>> & Omit<Student, 'id' | 'avatar'>): Promise<Student> {
     // Generate avatar initials
     const initials = studentData.name
       .split(' ')
@@ -328,22 +359,27 @@ class SupabaseService {
       });
 
       if (studentData.name) {
-        const student = await this.createStudent({
-          name: studentData.name,
-          email: studentData.email,
-          studentId: studentData.studentId,
-          isActive: true
-        });
-        
-        // Create enrollment
-        await this.createEnrollment({
-          studentId: student.id,
-          classId: classId,
-          status: 'approved',
-          enrolledAt: Date.now()
-        });
-        
-        students.push(student);
+        try {
+          const student = await this.createStudent({
+            name: studentData.name,
+            email: studentData.email,
+            studentId: studentData.studentId,
+            isActive: true
+          });
+
+          // Create enrollment
+          await this.createEnrollment({
+            studentId: student.id,
+            classId: classId,
+            status: 'approved',
+            enrolledAt: Date.now()
+          });
+
+          students.push(student);
+        } catch (err) {
+          console.error(`Failed to import student on line ${i + 1}:`, err);
+          // Continue with remaining students instead of stopping the entire import
+        }
       }
     }
 

@@ -31,8 +31,8 @@ const JoinClass: React.FC<JoinClassProps> = ({ student, onClassJoined }) => {
       // For now, we'll try to join and handle errors
       const classId = await supabaseService.joinClassByCode(student.id, classCode);
       onClassJoined(classId);
-    } catch (err: any) {
-      setError(err.message || 'Failed to join class. Please check the code.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to join class. Please check the code.');
     } finally {
       setLoading(false);
     }

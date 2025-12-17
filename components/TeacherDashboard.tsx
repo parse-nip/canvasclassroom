@@ -43,6 +43,7 @@ interface TeacherDashboardProps {
   classCode: string;
   currentClass: Class | null;
   onManageRoster?: () => void;
+  teacherId: string;
   // Class Management Props
   classes: Class[];
   onSelectClass: (classId: string) => void;
@@ -77,6 +78,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   classCode,
   currentClass,
   onManageRoster,
+  teacherId,
   classes,
   onSelectClass,
   onCreateClass,
@@ -607,11 +609,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   // Load feedback templates
   React.useEffect(() => {
     const loadFeedbackTemplates = async () => {
-      const templates = await supabaseService.getFeedbackTemplates('teacher1'); // TODO: Get from auth context
+      const templates = await supabaseService.getFeedbackTemplates(teacherId);
       setFeedbackTemplates(templates);
     };
-    loadFeedbackTemplates();
-  }, []);
+    if (teacherId) {
+      loadFeedbackTemplates();
+    }
+  }, [teacherId]);
 
   const handleEnrollmentUpdate = async (enrollment: Enrollment) => {
     // Persist enrollment update to Supabase if status changed
@@ -646,7 +650,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleAddFeedbackTemplate = async (template: Omit<FeedbackTemplate, 'id' | 'createdAt'>) => {
     const newTemplate = await supabaseService.createFeedbackTemplate({
       ...template,
-      createdBy: 'teacher1' // TODO: Get from auth context
+      createdBy: teacherId
     });
     setFeedbackTemplates(prev => [...prev, newTemplate]);
   };

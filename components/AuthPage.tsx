@@ -43,8 +43,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         if (error) throw error;
       }
       onAuthSuccess();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -72,9 +72,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
           <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div
+                <button
+                  type="button"
                   onClick={() => setRole('teacher')}
-                  className={`cursor-pointer p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
+                  className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
                     role === 'teacher'
                       ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                       : 'border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800'
@@ -82,10 +83,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 >
                   <FaChalkboardUser className="text-2xl" />
                   <span className="font-medium">Teacher</span>
-                </div>
-                <div
+                </button>
+                <button
+                  type="button"
                   onClick={() => setRole('student')}
-                  className={`cursor-pointer p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
+                  className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
                     role === 'student'
                       ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                       : 'border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800'
@@ -93,7 +95,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 >
                   <FaUserAstronaut className="text-2xl" />
                   <span className="font-medium">Student</span>
-                </div>
+                </button>
               </div>
             )}
 

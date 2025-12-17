@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS students (
   enrolled_at BIGINT,
   notes TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,
+  auth_user_id TEXT UNIQUE,
   created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
 );
 
@@ -194,4 +195,28 @@ CREATE POLICY "Allow all operations" ON announcements FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON help_requests FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON accommodations FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON feedback_templates FOR ALL USING (true);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_students_auth_user_id ON students(auth_user_id);
+
+-- Function to automatically create student profile on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.students (name, email, auth_user_id, is_active)
+  VALUES (
+    COALESCE(NEW.raw_user_meta_data->>'name', 'Student'),
+    NEW.email,
+    NEW.id,
+    true
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to call the function when a user signs up
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 

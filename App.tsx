@@ -12,6 +12,20 @@ import { supabase } from './lib/supabase';
 import { FaChalkboardUser, FaUserAstronaut, FaMoon, FaSun, FaQuestion, FaRightFromBracket } from 'react-icons/fa6';
 import { Session } from '@supabase/supabase-js';
 
+type EnrollmentRow = {
+  class_id: string;
+  classes: {
+    id: string;
+    name: string;
+    period?: string;
+    academic_year?: string;
+    teacher_id?: string;
+    class_code?: string;
+    created_at?: string;
+    default_editor_type?: string;
+  } | null;
+};
+
 
 // Tutorial Steps
 const TEACHER_TUTORIAL: TutorialStep[] = [
@@ -136,6 +150,7 @@ const App: React.FC = () => {
 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [copiedClassCode, setCopiedClassCode] = useState(false);
+  const [, setErrorMessage] = useState<string | null>(null);
 
   // Tutorial State
   const [tutorialActive, setTutorialActive] = useState(false);
@@ -182,67 +197,81 @@ const App: React.FC = () => {
           setCurrentClassId(loadedClasses[0].id);
         }
       } else if (userRole === 'student') {
-        // Find enrollments for this student
-        // We need to fetch student profile first or ensure it exists
-        // Ideally we fetch student by auth ID, but our schema links student to auth via... wait.
-        // The schema has `student_id` (text) but `id` (uuid).
-        // Let's assume the Student ID in our `students` table matches the Auth ID for now, 
-        // or we need a way to look it up.
-        // Current implementation of createStudent uses random ID or import.
-        
-        // For signed up students, we need to ensure a record exists in `students` table
-        // matching their Auth ID.
-        // Let's query `students` table by id = session.user.id
-        const { data: studentData, error } = await supabase
-          .from('students')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (studentData) {
-          setStudentProfile({
-            id: studentData.id,
-            name: studentData.name,
-            avatar: studentData.avatar,
-            email: studentData.email,
-            studentId: studentData.student_id,
-            enrolledAt: studentData.enrolled_at,
-            notes: studentData.notes,
-            isActive: studentData.is_active
-          });
-
-          // Fetch enrolled classes
-          const { data: enrollments } = await supabase
-            .from('enrollments')
-            .select('class_id, classes(*)')
-            .eq('student_id', session.user.id)
-            .eq('status', 'approved');
+        try {
+          setErrorMessage(null);
+          // Find enrollments for this student
+          // We need to fetch student profile first or ensure it exists
+          // Ideally we fetch student by auth ID, but our schema links student to auth via... wait.
+          // The schema has `student_id` (text) but `id` (uuid).
+          // Let's assume the Student ID in our `students` table matches the Auth ID for now, 
+          // or we need a way to look it up.
+          // Current implementation of createStudent uses random ID or import.
           
-          if (enrollments && enrollments.length > 0) {
-            // @ts-ignore
-            const studentClasses = enrollments.map(e => e.classes).map(row => ({
-              id: row.id,
-              name: row.name,
-              period: row.period,
-              academicYear: row.academic_year,
-              teacherId: row.teacher_id,
-              classCode: row.class_code,
-              createdAt: row.created_at,
-              defaultEditorType: row.default_editor_type
-            }));
-            
-            setClasses(studentClasses);
-            if (!currentClassId) setCurrentClassId(studentClasses[0].id);
+          // For signed up students, we need to ensure a record exists in `students` table
+          // matching their Auth ID.
+          let studentData = await supabaseService.getStudentByAuthId(session.user.id);
+
+          if (!studentData) {
+            // Create student profile if not exists
+            try {
+              console.log('Creating student profile for:', session.user.id);
+              const newStudent = await supabaseService.createStudent({
+                authUserId: session.user.id, // Link to Auth user ID
+                name: session.user.user_metadata.name || 'Student',
+                email: session.user.email,
+                isActive: true
+              });
+              console.log('Created student profile:', newStudent);
+              studentData = newStudent;
+            } catch (createStudentError) {
+              console.error('Error creating student profile:', createStudentError);
+              setErrorMessage('Unable to create student profile.');
+              return;
+            }
           }
-        } else {
-          // Create student profile if not exists
-          const newStudent = await supabaseService.createStudent({
-            id: session.user.id, // Explicitly set ID to match Auth ID
-            name: session.user.user_metadata.name || 'Student',
-            email: session.user.email,
-            isActive: true
-          } as any);
-          setStudentProfile(newStudent);
+
+          if (studentData) {
+            setStudentProfile(studentData);
+
+            // Fetch enrolled classes
+            const { data: enrollments, error: enrollmentsError } = await supabase
+              .from('enrollments')
+              .select('class_id, classes(*)')
+              .eq('student_id', studentData.id)
+              .eq('status', 'approved');
+
+            if (enrollmentsError) {
+              console.error('Error fetching enrollments:', enrollmentsError);
+              setErrorMessage('Unable to load enrollments.');
+              return;
+            }
+
+            if (enrollments && enrollments.length > 0) {
+              const enrollmentRows = (enrollments ?? []) as unknown as EnrollmentRow[];
+              const studentClasses = enrollmentRows
+                .map((enrollment) => enrollment.classes)
+                .filter((cls): cls is NonNullable<EnrollmentRow['classes']> => cls !== null)
+                .map((row) => ({
+                  id: row.id,
+                  name: row.name,
+                  period: row.period,
+                  academicYear: row.academic_year,
+                  teacherId: row.teacher_id,
+                  classCode: row.class_code,
+                  createdAt: row.created_at,
+                  defaultEditorType: row.default_editor_type
+                }));
+
+              setClasses(studentClasses);
+              if (!currentClassId && studentClasses[0]) {
+                setCurrentClassId(studentClasses[0].id);
+              }
+            }
+          }
+        } catch (loadError) {
+          console.error('Error loading student data:', loadError);
+          setErrorMessage('Unexpected error while loading student data.');
+          return;
         }
       }
     };
@@ -465,12 +494,12 @@ const App: React.FC = () => {
   };
 
   const handleSubmitLesson = async (lessonId: string, code: string, textAnswer?: string) => {
-    if (!currentClassId || !session) return;
-    
+    if (!currentClassId || !session || !studentProfile) return;
+
     // Check if submission already exists
-    const existingSubmissions = await supabaseService.getSubmissions(currentClassId, lessonId, session.user.id);
-    const existing = existingSubmissions.find(s => s.lessonId === lessonId && s.studentId === session.user.id);
-    
+    const existingSubmissions = await supabaseService.getSubmissions(currentClassId, lessonId, studentProfile.id);
+    const existing = existingSubmissions.find(s => s.lessonId === lessonId && s.studentId === studentProfile.id);
+
     if (existing) {
       // Update existing submission
       const updated = await supabaseService.updateSubmission(existing.id, {
@@ -484,7 +513,7 @@ const App: React.FC = () => {
       // Create new submission
       const newSubmission = await supabaseService.createSubmission({
         lessonId,
-        studentId: session.user.id,
+        studentId: studentProfile.id,
         classId: currentClassId,
         code,
         status: 'Submitted',
@@ -492,15 +521,15 @@ const App: React.FC = () => {
         currentStep: 999,
         textAnswer
       });
-      setSubmissions(prev => [...prev.filter(s => s.lessonId !== lessonId || s.studentId !== session.user.id), newSubmission]);
+      setSubmissions(prev => [...prev.filter(s => s.lessonId !== lessonId || s.studentId !== studentProfile.id), newSubmission]);
     }
   };
 
   const handleUpdateProgress = async (lessonId: string, code: string, step: number, historyItem?: StepHistory) => {
-    if (!currentClassId || !session) return;
-    
-    const existing = submissions.find(s => s.lessonId === lessonId && s.studentId === session.user.id);
-    let updatedHistory = existing?.history || [];
+    if (!currentClassId || !session || !studentProfile) return;
+
+    const existing = submissions.find(s => s.lessonId === lessonId && s.studentId === studentProfile.id);
+    const updatedHistory = existing?.history ? [...existing.history] : [];
 
     if (historyItem) {
       const historyIndex = updatedHistory.findIndex(h => h.stepIndex === historyItem.stepIndex);
@@ -523,7 +552,7 @@ const App: React.FC = () => {
       // Create new draft submission
       const newSubmission = await supabaseService.createSubmission({
         lessonId,
-        studentId: session.user.id,
+        studentId: studentProfile.id,
         classId: currentClassId,
         code,
         status: 'Draft',
@@ -654,6 +683,7 @@ const App: React.FC = () => {
                 onReorderLesson={handleReorderLesson}
                 onToggleLock={handleToggleLock}
                 onToggleSequential={handleToggleSequential}
+                teacherId={session.user.id}
                 students={students.filter(s => s.isActive)}
                 submissions={submissions}
                 lessons={lessons}
@@ -697,7 +727,7 @@ const App: React.FC = () => {
             units={units}
             onSubmitLesson={handleSubmitLesson}
             onUpdateProgress={handleUpdateProgress}
-            submissions={submissions.filter(s => s.studentId === session.user.id)}
+            submissions={submissions.filter(s => s.studentId === (studentProfile?.id || session.user.id))}
           />
         )}
       </main>
