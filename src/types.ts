@@ -73,6 +73,7 @@ export interface Student {
   enrolledAt?: number;
   notes?: string;
   isActive: boolean;
+  authUserId?: string; // Supabase Auth user ID
 }
 
 export interface Feedback {

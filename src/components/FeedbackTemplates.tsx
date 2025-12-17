@@ -6,6 +6,7 @@ import { FaPlus, FaPenToSquare, FaTrash, FaComments, FaStar, FaTriangleExclamati
 
 interface FeedbackTemplatesProps {
   templates: FeedbackTemplate[];
+  teacherId: string;
   onAddTemplate: (template: Omit<FeedbackTemplate, 'id' | 'createdAt'>) => void;
   onUpdateTemplate: (templateId: string, updates: Partial<FeedbackTemplate>) => void;
   onDeleteTemplate: (templateId: string) => void;
@@ -33,6 +34,7 @@ const DEFAULT_TEMPLATES: Omit<FeedbackTemplate, 'id' | 'createdAt' | 'createdBy'
 
 const FeedbackTemplates: React.FC<FeedbackTemplatesProps> = ({
   templates,
+  teacherId,
   onAddTemplate,
   onUpdateTemplate,
   onDeleteTemplate,
@@ -60,7 +62,7 @@ const FeedbackTemplates: React.FC<FeedbackTemplatesProps> = ({
         name: name.trim(),
         comment: comment.trim(),
         category,
-        createdBy: 'teacher1' // TODO: Get from auth
+        createdBy: teacherId
       });
     }
 
@@ -93,7 +95,7 @@ const FeedbackTemplates: React.FC<FeedbackTemplatesProps> = ({
     DEFAULT_TEMPLATES.forEach(template => {
       onAddTemplate({
         ...template,
-        createdBy: 'teacher1'
+        createdBy: teacherId
       });
     });
   };

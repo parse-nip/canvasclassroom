@@ -7,6 +7,7 @@ import { FaPlus, FaUsers, FaCopy, FaTrash, FaPenToSquare, FaChevronDown } from '
 interface ClassManagerProps {
   classes: Class[];
   currentClassId: string | null;
+  teacherId: string;
   onSelectClass: (classId: string) => void;
   onCreateClass: (classData: Omit<Class, 'id' | 'createdAt' | 'classCode'>) => void;
   onUpdateClass: (classId: string, updates: Partial<Class>) => void;
@@ -17,6 +18,7 @@ interface ClassManagerProps {
 const ClassManager: React.FC<ClassManagerProps> = ({
   classes,
   currentClassId,
+  teacherId,
   onSelectClass,
   onCreateClass,
   onUpdateClass,
@@ -40,7 +42,7 @@ const ClassManager: React.FC<ClassManagerProps> = ({
       name: newClassName,
       period: newClassPeriod || undefined,
       academicYear: newClassYear,
-      teacherId: 'teacher1', // TODO: Get from auth
+      teacherId,
       defaultEditorType: newClassEditorType
     });
     

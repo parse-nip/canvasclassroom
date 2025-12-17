@@ -4,104 +4,28 @@ import StudentView from './components/StudentView';
 import TutorialOverlay, { TutorialStep, SubStep } from './components/TutorialOverlay';
 import ClassManager from './components/ClassManager';
 import StudentRoster from './components/StudentRoster';
+import AuthPage from './components/AuthPage';
+import JoinClass from './components/JoinClass';
 import { LessonPlan, Student, Submission, Unit, StepHistory, Class } from './types';
 import { supabaseService } from './services/supabaseService';
-import { FaChalkboardUser, FaUserAstronaut, FaMoon, FaSun, FaQuestion } from 'react-icons/fa6';
+import { supabase } from './lib/supabase';
+import { FaChalkboardUser, FaUserAstronaut, FaMoon, FaSun, FaQuestion, FaRightFromBracket } from 'react-icons/fa6';
+import { Session } from '@supabase/supabase-js';
 
-// Helper to create default class
-const createDefaultClass = (): Class => ({
-  id: 'default-class',
-  name: 'My First Class',
-  period: 'Period 1',
-  academicYear: new Date().getFullYear().toString(),
-  teacherId: 'teacher1',
-  classCode: '123456',
-  createdAt: Date.now()
-});
+type EnrollmentRow = {
+  class_id: string;
+  classes: {
+    id: string;
+    name: string;
+    period?: string;
+    academic_year?: string;
+    teacher_id?: string;
+    class_code?: string;
+    created_at?: string;
+    default_editor_type?: string;
+  } | null;
+};
 
-// Default Units with lock status and timestamps (will be scoped to class)
-const createDefaultUnits = (classId: string): Unit[] => [
-  { id: 'u1', classId, title: 'Unit 1: Foundations', description: 'Core concepts of p5.js and drawing.', order: 0, isLocked: false, isSequential: true },
-  { id: 'u2', classId, title: 'Unit 2: Interaction', description: 'Mouse and keyboard events.', order: 1, isLocked: true, isSequential: true },
-  { id: 'u3', classId, title: 'Unit 3: Animation', description: 'Movement, velocity, and physics.', order: 2, isLocked: true, isSequential: true },
-  { id: 'u4', classId, title: 'Unit 4: Future Tech', description: 'Advanced synthesis.', order: 3, isLocked: false, isSequential: true, availableAt: Date.now() + 86400000 * 7 }
-];
-
-// Default lessons (will be scoped to class)
-const createDefaultLessons = (classId: string, unitId: string): LessonPlan[] => [
-  {
-    id: '3',
-    classId,
-    unitId,
-    type: 'Lesson',
-    topic: 'Scratch Introduction',
-    title: 'My First Scratch Project',
-    difficulty: 'Beginner',
-    objective: 'Learn to use Scratch blocks',
-    description: 'Create your first animated sprite in Scratch.',
-    theory: "**Welcome to Scratch!** \n\nScratch uses visual blocks instead of text code. \n- Drag blocks from the palette to the coding area\n- Connect blocks together to create scripts\n- Click the green flag to run your project",
-    steps: [
-      '[NEXT] Look at the Scratch editor. Notice the sprite in the center?',
-      '[TEXT] What do you think the "when flag clicked" block does?',
-      'Add a "move 10 steps" block to make the sprite move.',
-      'Add a "say Hello!" block to make the sprite talk.',
-      'Click the green flag to see your project run!'
-    ],
-    starterCode: '{}', // Empty Scratch project JSON
-    challenge: 'Can you make the sprite move in a square pattern?',
-    isAiGuided: true,
-    tags: ['scratch', 'motion', 'events'],
-    reflectionQuestion: 'How is Scratch different from text-based coding?',
-    editorType: 'scratch'
-  },
-  {
-    id: '1',
-    classId,
-    unitId,
-    type: 'Lesson',
-    topic: 'Introduction',
-    title: 'Hello Shapes',
-    difficulty: 'Beginner',
-    objective: 'Learn to draw basic primitives',
-    description: 'Draw your first shapes.',
-    theory: "**Welcome to p5.js!** \n\nThink of the canvas like a piece of graph paper. \n- **X** is left-to-right.\n- **Y** is up-and-down.",
-    steps: [
-      '[NEXT] First, look at the code. Notice the numbers inside createCanvas()?',
-      '[TEXT] What do you think the numbers 400, 400 mean?',
-      'Use `createCanvas(400, 400)` to make space.',
-      'Set a `background` color.',
-      'Draw a `rect` (rectangle) in the middle.'
-    ],
-    starterCode: '// setup() runs once at the start\nfunction setup() {\n  // This creates our drawing space (width, height)\n  createCanvas(400, 400);\n}\n\n// draw() runs over and over again\nfunction draw() {\n  // 220 is a light gray color\n  background(220);\n  \n  // Try changing the numbers below!\n  // rect(x, y, width, height)\n  rect(150, 150, 100, 100);\n}',
-    challenge: 'Can you change the colors of the shapes using fill()?',
-    isAiGuided: true,
-    tags: ['shapes', 'coordinates', 'color'],
-    reflectionQuestion: 'Why do we put the background() command inside the draw() function?',
-    editorType: 'p5'
-  },
-  {
-    id: '2',
-    classId,
-    unitId,
-    type: 'Lesson',
-    topic: 'Colors',
-    title: 'Colorful World',
-    difficulty: 'Beginner',
-    objective: 'Use fill() and stroke()',
-    description: 'Add color to your sketches.',
-    theory: "Colors in computers are mixed using **Red**, **Green**, and **Blue** (RGB). \n\n`fill(255, 0, 0)` is bright Red!",
-    steps: [
-      '[NEXT] Run the code and see the white circle.',
-      'Draw a circle.',
-      'Use `fill(r, g, b)` before the circle to color it.'
-    ],
-    starterCode: 'function setup() {\n  createCanvas(400, 400);\n}\n\nfunction draw() {\n  background(220);\n  \n  // CHANGE ME: Add a fill() command here\n  \n  ellipse(200, 200, 100, 100);\n}',
-    challenge: 'Make the circle green!',
-    isAiGuided: true,
-    tags: ['color', 'shapes'],
-    editorType: 'p5'
-  }
-];
 
 // Tutorial Steps
 const TEACHER_TUTORIAL: TutorialStep[] = [
@@ -209,7 +133,10 @@ const TEACHER_TUTORIAL: TutorialStep[] = [
 ];
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'teacher' | 'student'>('teacher');
+  const [session, setSession] = useState<Session | null>(null);
+  const [userRole, setUserRole] = useState<'teacher' | 'student' | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [studentProfile, setStudentProfile] = useState<Student | null>(null);
 
   // Class Management
   const [classes, setClasses] = useState<Class[]>([]);
@@ -223,6 +150,7 @@ const App: React.FC = () => {
 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [copiedClassCode, setCopiedClassCode] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Tutorial State
   const [tutorialActive, setTutorialActive] = useState(false);
@@ -231,32 +159,151 @@ const App: React.FC = () => {
   // Tab state (lifted for tutorial control)
   const [activeTab, setActiveTab] = useState<'planner' | 'curriculum' | 'grading' | 'analytics' | 'roster' | 'communication' | 'tools' | 'help'>('planner');
 
-  const currentStudentId = 's1';
-
-  // Initialize with default class if none exists
+  // Auth Effect
   useEffect(() => {
-    if (classes.length === 0) {
-      const defaultClass = createDefaultClass();
-      setClasses([defaultClass]);
-      setCurrentClassId(defaultClass.id);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        const role = session.user.user_metadata.role;
+        setUserRole(role === 'teacher' || role === 'student' ? role : null);
+      }
+      setLoading(false);
+    });
 
-      // Initialize default data for first class
-      const defaultUnits = createDefaultUnits(defaultClass.id);
-      const defaultLessons = createDefaultLessons(defaultClass.id, defaultUnits[0].id);
-      setUnits(defaultUnits);
-      setLessons(defaultLessons);
-    }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        const role = session.user.user_metadata.role;
+        setUserRole(role === 'teacher' || role === 'student' ? role : null);
+      } else {
+        setUserRole(null);
+        setClasses([]);
+        setCurrentClassId(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  // Load Classes Effect
+  useEffect(() => {
+    if (!session || !userRole) return;
+
+    const loadData = async () => {
+      if (userRole === 'teacher') {
+        try {
+          const loadedClasses = await supabaseService.getClasses(session.user.id);
+          setClasses(loadedClasses);
+        } catch (error) {
+          console.error('Error loading teacher classes:', error);
+          setErrorMessage('Unable to load your classes.');
+        }
+      } else if (userRole === 'student') {
+        try {
+          setErrorMessage(null);
+          let studentData = await supabaseService.getStudentByAuthId(session.user.id);
+
+          if (!studentData) {
+            // Create student profile if not exists
+            try {
+              console.log('Creating student profile for:', session.user.id);
+              const newStudent = await supabaseService.createStudent({
+                authUserId: session.user.id, // Link to Auth user ID
+                name: session.user.user_metadata.name || 'Student',
+                email: session.user.email,
+                isActive: true
+              });
+              console.log('Created student profile:', newStudent);
+              studentData = newStudent;
+            } catch (createStudentError) {
+              console.error('Error creating student profile:', createStudentError);
+              setErrorMessage('Unable to create student profile.');
+              return;
+            }
+          }
+
+          if (studentData) {
+            setStudentProfile(studentData);
+
+            // Fetch enrolled classes
+            const { data: enrollments, error: enrollmentsError } = await supabase
+              .from('enrollments')
+              .select('class_id, classes(*)')
+              .eq('student_id', studentData.id)
+              .eq('status', 'approved');
+
+            if (enrollmentsError) {
+              console.error('Error fetching enrollments:', enrollmentsError);
+              setErrorMessage('Unable to load enrollments.');
+              return;
+            }
+
+            if (enrollments && enrollments.length > 0) {
+              const enrollmentRows = (enrollments ?? []) as unknown as EnrollmentRow[];
+              const studentClasses = enrollmentRows
+                .map((enrollment) => enrollment.classes)
+                .filter((cls): cls is NonNullable<EnrollmentRow['classes']> => cls !== null)
+                .map((row) => ({
+                  id: row.id,
+                  name: row.name,
+                  period: row.period,
+                  academicYear: row.academic_year,
+                  teacherId: row.teacher_id,
+                  classCode: row.class_code,
+                  createdAt: row.created_at,
+                  defaultEditorType: row.default_editor_type
+                }));
+
+              setClasses(studentClasses);
+              // currentClassId will be set by the separate effect watching classes
+            }
+          }
+        } catch (loadError) {
+          console.error('Error loading student data:', loadError);
+          setErrorMessage('Unexpected error while loading student data.');
+          return;
+        }
+      }
+    };
+
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, userRole]);
+
+  // Set initial class when classes load
+  useEffect(() => {
+    if (classes.length > 0 && !currentClassId) {
+      setCurrentClassId(classes[0].id);
+    }
+  }, [classes, currentClassId]);
 
   // Load class data when class changes
   useEffect(() => {
-    if (currentClassId) {
-      // Filter data by current class
-      // In real implementation, this would fetch from Supabase
-      setUnits(prev => prev.filter(u => u.classId === currentClassId));
-      setLessons(prev => prev.filter(l => l.classId === currentClassId));
-      setSubmissions(prev => prev.filter(s => s.classId === currentClassId));
-    }
+    if (!currentClassId) return;
+
+    const loadClassData = async () => {
+      try {
+        // Load units, lessons, students, and submissions for the current class
+        const [loadedUnits, loadedLessons, loadedStudents, loadedSubmissions] = await Promise.all([
+          supabaseService.getUnits(currentClassId),
+          supabaseService.getLessons(currentClassId),
+          supabaseService.getStudents(currentClassId),
+          supabaseService.getSubmissions(currentClassId)
+        ]);
+
+        setUnits(loadedUnits);
+        setLessons(loadedLessons);
+        setStudents(loadedStudents);
+        setSubmissions(loadedSubmissions);
+      } catch (error) {
+        console.error('Error loading class data:', error);
+        setErrorMessage('Unable to load class data.');
+      }
+    };
+
+    loadClassData();
   }, [currentClassId]);
 
   // Theme Toggle Effect
@@ -289,13 +336,15 @@ const App: React.FC = () => {
 
   // Class Management Handlers
   const handleCreateClass = async (classData: Omit<Class, 'id' | 'createdAt' | 'classCode'>) => {
-    const newClass = await supabaseService.createClass(classData);
+    if (!session) return;
+    // Inject teacherId from session
+    const newClass = await supabaseService.createClass({
+      ...classData,
+      teacherId: session.user.id
+    });
     setClasses(prev => [...prev, newClass]);
     setCurrentClassId(newClass.id);
-
-    // Initialize with default units for new class
-    const defaultUnits = createDefaultUnits(newClass.id);
-    setUnits(prev => [...prev, ...defaultUnits]);
+    // Units and lessons will be loaded automatically via useEffect
   };
 
   const handleUpdateClass = async (classId: string, updates: Partial<Class>) => {
@@ -325,7 +374,26 @@ const App: React.FC = () => {
   const handleAddStudent = async (studentData: Omit<Student, 'id' | 'avatar'>) => {
     if (!currentClassId) return;
     const newStudent = await supabaseService.createStudent(studentData);
-    setStudents(prev => [...prev, newStudent]);
+    
+    try {
+      // Create enrollment for the student
+      await supabaseService.createEnrollment({
+        studentId: newStudent.id,
+        classId: currentClassId,
+        status: 'approved',
+        enrolledAt: Date.now()
+      });
+      setStudents(prev => [...prev, newStudent]);
+    } catch (enrollError) {
+      console.error('Error creating enrollment:', enrollError);
+      setErrorMessage('Student created but enrollment failed.');
+      // Rollback: deactivate the orphaned student
+      try {
+        await supabaseService.updateStudent(newStudent.id, { isActive: false });
+      } catch (rollbackErr) {
+        console.error('Failed to rollback student creation:', rollbackErr);
+      }
+    }
   };
 
   const handleUpdateStudent = async (studentId: string, updates: Partial<Student>) => {
@@ -344,31 +412,36 @@ const App: React.FC = () => {
   };
 
   // Lesson/Unit Handlers (now class-scoped)
-  const handleAddLesson = (lesson: LessonPlan) => {
+  const handleAddLesson = async (lesson: LessonPlan) => {
     if (!currentClassId) return;
     const lessonWithClass = { ...lesson, classId: currentClassId };
-    setLessons(prev => [lessonWithClass, ...prev]);
+    const createdLesson = await supabaseService.createLesson(lessonWithClass);
+    setLessons(prev => [createdLesson, ...prev]);
   };
 
-  const handleUpdateLesson = (updatedLesson: LessonPlan) => {
-    setLessons(prev => prev.map(l => l.id === updatedLesson.id ? { ...updatedLesson, classId: currentClassId || l.classId } : l));
+  const handleUpdateLesson = async (updatedLesson: LessonPlan) => {
+    const updated = await supabaseService.updateLesson(updatedLesson.id, updatedLesson);
+    setLessons(prev => prev.map(l => l.id === updated.id ? updated : l));
   };
 
-  const handleDeleteLesson = (lessonId: string) => {
+  const handleDeleteLesson = async (lessonId: string) => {
+    await supabaseService.deleteLesson(lessonId);
     setLessons(prev => prev.filter(l => l.id !== lessonId));
   };
 
-  const handleAddUnit = (unit: Unit) => {
+  const handleAddUnit = async (unit: Unit) => {
     if (!currentClassId) return;
     const unitWithClass = { ...unit, classId: currentClassId };
-    setUnits(prev => [...prev, unitWithClass]);
+    const createdUnit = await supabaseService.createUnit(unitWithClass);
+    setUnits(prev => [...prev, createdUnit]);
   };
 
-  const handleUpdateUnit = (updatedUnit: Unit) => {
-    setUnits(prev => prev.map(u => u.id === updatedUnit.id ? { ...updatedUnit, classId: currentClassId || u.classId } : u));
+  const handleUpdateUnit = async (updatedUnit: Unit) => {
+    const updated = await supabaseService.updateUnit(updatedUnit.id, updatedUnit);
+    setUnits(prev => prev.map(u => u.id === updated.id ? updated : u));
   };
 
-  const handleReorderUnits = (draggedUnitId: string, targetUnitId: string) => {
+  const handleReorderUnits = async (draggedUnitId: string, targetUnitId: string) => {
     const draggedIdx = units.findIndex(u => u.id === draggedUnitId);
     const targetIdx = units.findIndex(u => u.id === targetUnitId);
 
@@ -378,17 +451,27 @@ const App: React.FC = () => {
     const [removed] = newUnits.splice(draggedIdx, 1);
     newUnits.splice(targetIdx, 0, removed);
 
-    // Update order field
+    // Update order field and persist to Supabase
     const reordered = newUnits.map((u, idx) => ({ ...u, order: idx }));
     setUnits(reordered);
+    
+    // Persist order changes to Supabase
+    await Promise.all(reordered.map((u, idx) => 
+      supabaseService.updateUnit(u.id, { order: idx })
+    ));
   };
 
-  const handleReorderLesson = (lessonId: string, targetUnitId: string, insertBeforeLessonId?: string) => {
-    setLessons(prev => {
-      const lessonIndex = prev.findIndex(l => l.id === lessonId);
-      if (lessonIndex === -1) return prev;
+  const handleReorderLesson = async (lessonId: string, targetUnitId: string, insertBeforeLessonId?: string) => {
+    const lessonIndex = lessons.findIndex(l => l.id === lessonId);
+    if (lessonIndex === -1) return;
 
-      const lesson = { ...prev[lessonIndex], unitId: targetUnitId || undefined };
+    const lesson = { ...lessons[lessonIndex], unitId: targetUnitId || undefined };
+    
+    // Update in Supabase
+    await supabaseService.updateLesson(lessonId, { unitId: targetUnitId || undefined });
+    
+    // Update local state
+    setLessons(prev => {
       const remaining = prev.filter(l => l.id !== lessonId);
 
       if (insertBeforeLessonId) {
@@ -404,95 +487,175 @@ const App: React.FC = () => {
     });
   };
 
-  const handleMoveLesson = (lessonId: string, unitId: string) => {
+  const handleMoveLesson = async (lessonId: string, unitId: string) => {
+    await supabaseService.updateLesson(lessonId, { unitId });
     setLessons(prev => prev.map(l => l.id === lessonId ? { ...l, unitId } : l));
   };
 
-  const handleToggleLock = (unitId: string) => {
-    setUnits(prev => prev.map(u => u.id === unitId ? { ...u, isLocked: !u.isLocked } : u));
+  const handleToggleLock = async (unitId: string) => {
+    const unit = units.find(u => u.id === unitId);
+    if (!unit) return;
+    
+    const updated = await supabaseService.updateUnit(unitId, { isLocked: !unit.isLocked });
+    setUnits(prev => prev.map(u => u.id === unitId ? updated : u));
   };
 
-  const handleToggleSequential = (unitId: string) => {
-    setUnits(prev => prev.map(u => u.id === unitId ? { ...u, isSequential: !u.isSequential } : u));
+  const handleToggleSequential = async (unitId: string) => {
+    const unit = units.find(u => u.id === unitId);
+    if (!unit) return;
+    
+    const updated = await supabaseService.updateUnit(unitId, { isSequential: !unit.isSequential });
+    setUnits(prev => prev.map(u => u.id === unitId ? updated : u));
   };
 
-  const handleSubmitLesson = (lessonId: string, code: string, textAnswer?: string) => {
-    if (!currentClassId) return;
-    const newSubmission: Submission = {
-      id: Date.now().toString(),
-      lessonId,
-      studentId: currentStudentId,
-      classId: currentClassId,
-      code,
-      status: 'Submitted',
-      submittedAt: Date.now(),
-      currentStep: 999,
-      textAnswer: textAnswer
-    };
+  const handleSubmitLesson = async (lessonId: string, code: string, textAnswer?: string) => {
+    if (!currentClassId || !session || !studentProfile) return;
 
-    setSubmissions(prev => [...prev.filter(s => s.lessonId !== lessonId || s.studentId !== currentStudentId), newSubmission]);
+    // Check if submission already exists
+    const existingSubmissions = await supabaseService.getSubmissions(currentClassId, lessonId, studentProfile.id);
+    const existing = existingSubmissions.find(s => s.lessonId === lessonId && s.studentId === studentProfile.id);
+
+    if (existing) {
+      // Update existing submission
+      const updated = await supabaseService.updateSubmission(existing.id, {
+        code,
+        status: 'Submitted',
+        submittedAt: Date.now(),
+        textAnswer
+      });
+      setSubmissions(prev => prev.map(s => s.id === existing.id ? updated : s));
+    } else {
+      // Create new submission
+      const newSubmission = await supabaseService.createSubmission({
+        lessonId,
+        studentId: studentProfile.id,
+        classId: currentClassId,
+        code,
+        status: 'Submitted',
+        submittedAt: Date.now(),
+        currentStep: 999,
+        textAnswer
+      });
+      setSubmissions(prev => [...prev.filter(s => s.lessonId !== lessonId || s.studentId !== studentProfile.id), newSubmission]);
+    }
   };
 
-  const handleUpdateProgress = (lessonId: string, code: string, step: number, historyItem?: StepHistory) => {
-    if (!currentClassId) return;
-    setSubmissions(prev => {
-      const existing = prev.find(s => s.lessonId === lessonId && s.studentId === currentStudentId);
-      let updatedHistory = existing?.history || [];
+  const handleUpdateProgress = async (lessonId: string, code: string, step: number, historyItem?: StepHistory) => {
+    if (!currentClassId || !session || !studentProfile) return;
 
-      if (historyItem) {
-        const historyIndex = updatedHistory.findIndex(h => h.stepIndex === historyItem.stepIndex);
-        if (historyIndex > -1) {
-          updatedHistory[historyIndex] = historyItem;
-        } else {
-          updatedHistory.push(historyItem);
-        }
-      }
+    const existing = submissions.find(s => s.lessonId === lessonId && s.studentId === studentProfile.id);
+    const updatedHistory = existing?.history ? [...existing.history] : [];
 
-      if (existing) {
-        return prev.map(s => s.id === existing.id ? {
-          ...s,
-          code,
-          currentStep: step,
-          history: updatedHistory
-        } : s);
+    if (historyItem) {
+      const historyIndex = updatedHistory.findIndex(h => h.stepIndex === historyItem.stepIndex);
+      if (historyIndex > -1) {
+        updatedHistory[historyIndex] = historyItem;
       } else {
-        const newSubmission: Submission = {
-          id: Date.now().toString(),
-          lessonId,
-          studentId: currentStudentId,
-          classId: currentClassId,
-          code,
-          status: 'Draft',
-          currentStep: step,
-          history: updatedHistory
-        };
-        return [...prev, newSubmission];
+        updatedHistory.push(historyItem);
+      }
+    }
+
+    if (existing) {
+      // Update existing submission
+      const updated = await supabaseService.updateSubmission(existing.id, {
+        code,
+        currentStep: step,
+        history: updatedHistory
+      });
+      setSubmissions(prev => prev.map(s => s.id === existing.id ? updated : s));
+    } else {
+      // Create new draft submission
+      const newSubmission = await supabaseService.createSubmission({
+        lessonId,
+        studentId: studentProfile.id,
+        classId: currentClassId,
+        code,
+        status: 'Draft',
+        currentStep: step,
+        history: updatedHistory
+      });
+      setSubmissions(prev => [...prev, newSubmission]);
+    }
+  };
+
+  const handleGradeSubmission = async (submissionId: string, grade: number, comment: string) => {
+    const updated = await supabaseService.updateSubmission(submissionId, {
+      status: 'Graded',
+      feedback: {
+        grade,
+        comment,
+        gradedAt: Date.now()
       }
     });
+    setSubmissions(prev => prev.map(sub => sub.id === submissionId ? updated : sub));
   };
 
-  const handleGradeSubmission = (submissionId: string, grade: number, comment: string) => {
-    setSubmissions(prev => prev.map(sub => {
-      if (sub.id === submissionId) {
-        return {
-          ...sub,
-          status: 'Graded',
-          feedback: {
-            grade,
-            comment,
-            gradedAt: Date.now()
-          }
-        };
-      }
-      return sub;
-    }));
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setUserRole(null);
+    setClasses([]);
+    setCurrentClassId(null);
   };
+
+  const handleClassJoined = async (classId: string) => {
+    setCurrentClassId(classId);
+    // Fetch the joined class and add to state
+    try {
+      const joinedClass = await supabaseService.getClass(classId);
+      if (joinedClass) {
+        setClasses(prev => {
+          // Only add if not already present
+          if (prev.some(c => c.id === classId)) return prev;
+          return [...prev, joinedClass];
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching joined class:', error);
+      // Still set currentClassId, class list will refresh on next load
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading...</div>;
+  }
+
+  // Display error message if present
+  if (errorMessage && !session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+        <div className="text-center">
+          <div className="text-red-500 text-lg mb-4">{errorMessage}</div>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthPage onAuthSuccess={() => {}} />;
+  }
+
+  // Ensure student profile is loaded before rendering student views
+  if (userRole === 'student' && !studentProfile) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading profile...</div>;
+  }
+
+  // If student is logged in but hasn't joined any class (and currentClassId is null), show Join Class
+  if (userRole === 'student' && !currentClassId && studentProfile) {
+    return <JoinClass student={studentProfile} onClassJoined={handleClassJoined} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300">
 
       {/* Tutorial Overlay - Only for teacher view */}
-      {view === 'teacher' && (
+      {userRole === 'teacher' && (
         <TutorialOverlay
           isOpen={tutorialActive}
           onClose={() => setTutorialActive(false)}
@@ -516,7 +679,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {view === 'teacher' && (
+            {userRole === 'teacher' && (
               <button
                 onClick={startTutorial}
                 className="p-2 text-slate-500 hover:text-indigo-500 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
@@ -536,24 +699,16 @@ const App: React.FC = () => {
 
             <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
 
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                {session.user.user_metadata.name || session.user.email || 'User'} <span className="opacity-50">({userRole === 'teacher' ? 'Teacher' : 'Student'})</span>
+              </div>
               <button
-                onClick={() => setView('teacher')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'teacher'
-                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
+                onClick={handleSignOut}
+                className="p-2 text-slate-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 transition-colors"
+                title="Sign Out"
               >
-                <FaChalkboardUser /> Teacher
-              </button>
-              <button
-                onClick={() => setView('student')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'student'
-                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-              >
-                <FaUserAstronaut /> Student
+                <FaRightFromBracket />
               </button>
             </div>
           </div>
@@ -562,7 +717,7 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-0 relative">
-        {view === 'teacher' ? (
+        {userRole === 'teacher' ? (
           <div className="container mx-auto px-4 py-8">
             {currentClassId ? (
               <TeacherDashboard
@@ -576,6 +731,7 @@ const App: React.FC = () => {
                 onReorderLesson={handleReorderLesson}
                 onToggleLock={handleToggleLock}
                 onToggleSequential={handleToggleSequential}
+                teacherId={session.user.id}
                 students={students.filter(s => s.isActive)}
                 submissions={submissions}
                 lessons={lessons}
@@ -604,6 +760,7 @@ const App: React.FC = () => {
                 <ClassManager
                   classes={classes}
                   currentClassId={currentClassId}
+                  teacherId={session.user.id}
                   onSelectClass={handleSelectClass}
                   onCreateClass={handleCreateClass}
                   onUpdateClass={handleUpdateClass}
@@ -619,7 +776,7 @@ const App: React.FC = () => {
             units={units}
             onSubmitLesson={handleSubmitLesson}
             onUpdateProgress={handleUpdateProgress}
-            submissions={submissions.filter(s => s.studentId === currentStudentId)}
+            submissions={submissions.filter(s => studentProfile && s.studentId === studentProfile.id)}
           />
         )}
       </main>
