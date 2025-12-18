@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { Card, CardContent } from './ui/Card';
 import { FaWandMagicSparkles, FaLayerGroup, FaHandsHolding, FaCode, FaRocket, FaChevronRight } from 'react-icons/fa6';

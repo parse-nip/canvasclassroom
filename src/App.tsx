@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import TeacherDashboard from './components/TeacherDashboard';
 import StudentView from './components/StudentView';
 import TutorialOverlay, { TutorialStep, SubStep } from './components/TutorialOverlay';
@@ -7,6 +8,7 @@ import StudentRoster from './components/StudentRoster';
 import AuthPage from './components/AuthPage';
 import JoinClass from './components/JoinClass';
 import HomePage from './components/HomePage';
+import ProtectedRoute from './components/ProtectedRoute';
 import { LessonPlan, Student, Submission, Unit, StepHistory, Class } from './types';
 import { supabaseService } from './services/supabaseService';
 import { supabase } from './lib/supabase';
@@ -133,7 +135,138 @@ const TEACHER_TUTORIAL: TutorialStep[] = [
   }
 ];
 
+// Layout component for authenticated routes
+const AuthenticatedLayout: React.FC<{
+  session: Session;
+  userRole: 'teacher' | 'student';
+  isDarkMode: boolean;
+  setIsDarkMode: (value: boolean) => void;
+  onSignOut: () => void;
+  tutorialActive: boolean;
+  onTutorialClose: () => void;
+  startTutorial: () => void;
+  tutorialStepIndex: number;
+  handleTutorialNext: () => void;
+  handleTutorialTabClick: (tabId: string) => void;
+  activeTab: 'planner' | 'curriculum' | 'grading' | 'analytics' | 'roster' | 'communication' | 'tools' | 'help';
+  children: React.ReactNode;
+}> = ({
+  session,
+  userRole,
+  isDarkMode,
+  setIsDarkMode,
+  onSignOut,
+  tutorialActive,
+  onTutorialClose,
+  startTutorial,
+  tutorialStepIndex,
+  handleTutorialNext,
+  handleTutorialTabClick,
+  activeTab,
+  children
+}) => {
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300">
+      {/* Tutorial Overlay - Only for teacher view */}
+      {userRole === 'teacher' && (
+        <TutorialOverlay
+          isOpen={tutorialActive}
+          onClose={onTutorialClose}
+          currentStepIndex={tutorialStepIndex}
+          onNextStep={handleTutorialNext}
+          steps={TEACHER_TUTORIAL}
+          onTabClick={handleTutorialTabClick}
+        />
+      )}
+
+      {/* Navigation Bar */}
+      <nav className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex-shrink-0">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold font-mono text-lg shadow-lg shadow-indigo-500/20">
+              C
+            </div>
+            <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300">
+              CanvasClassroom
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {userRole === 'teacher' && (
+              <button
+                onClick={startTutorial}
+                className="p-2 text-slate-500 hover:text-indigo-500 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+                title="Start Tutorial"
+              >
+                <FaQuestion />
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 text-slate-500 hover:text-indigo-500 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+              title="Toggle Theme"
+            >
+              {isDarkMode ? <FaSun /> : <FaMoon />}
+            </button>
+
+            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                {session.user.user_metadata.name || session.user.email || 'User'} <span className="opacity-50">({userRole === 'teacher' ? 'Teacher' : 'Student'})</span>
+              </div>
+              <button
+                onClick={onSignOut}
+                className="p-2 text-slate-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 transition-colors"
+                title="Sign Out"
+              >
+                <FaRightFromBracket />
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-h-0 relative">
+        {children}
+      </main>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Detect if we're on the app subdomain
+  // In production: app.canvasclassroom.com = app, canvasclassroom.com = homepage
+  // In development: use VITE_APP_SUBDOMAIN env var or default to app subdomain
+  const isAppSubdomain = typeof window !== 'undefined' && (() => {
+    const hostname = window.location.hostname;
+    
+    // Production: check actual subdomain
+    if (hostname === 'app.canvasclassroom.com' || hostname.startsWith('app.')) {
+      return true;
+    }
+    
+    // Root domain in production
+    if (hostname === 'canvasclassroom.com' || hostname === 'www.canvasclassroom.com') {
+      return false;
+    }
+    
+    // Development: check environment variable or default to app subdomain
+    // This allows testing both homepage and app locally
+    const envSubdomain = import.meta.env.VITE_APP_SUBDOMAIN;
+    if (envSubdomain !== undefined) {
+      return envSubdomain === 'true' || envSubdomain === '1';
+    }
+    
+    // Default: assume app subdomain for localhost (most common use case)
+    return true;
+  })();
+  
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<'teacher' | 'student' | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,7 +289,6 @@ const App: React.FC = () => {
   // Tutorial State
   const [tutorialActive, setTutorialActive] = useState(false);
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
-  const [showLanding, setShowLanding] = useState(true);
   
   // Tab state (lifted for tutorial control)
   const [activeTab, setActiveTab] = useState<'planner' | 'curriculum' | 'grading' | 'analytics' | 'roster' | 'communication' | 'tools' | 'help'>('planner');
@@ -188,16 +320,29 @@ const App: React.FC = () => {
       setSession(session);
       if (session) {
         const role = session.user.user_metadata.role;
-        setUserRole(role === 'teacher' || role === 'student' ? role : null);
+        const newRole = role === 'teacher' || role === 'student' ? role : null;
+        setUserRole(newRole);
+        
+        // Navigate to appropriate route after authentication
+        if (newRole && location.pathname === '/auth') {
+          if (newRole === 'teacher') {
+            navigate('/teacher', { replace: true });
+          } else {
+            navigate('/student', { replace: true });
+          }
+        }
       } else {
         setUserRole(null);
         setClasses([]);
         setCurrentClassId(null);
+        if (location.pathname.startsWith('/teacher') || location.pathname.startsWith('/student')) {
+          navigate('/', { replace: true });
+        }
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate, location.pathname]);
 
   // Load Classes Effect
   useEffect(() => {
@@ -608,7 +753,7 @@ const App: React.FC = () => {
     setUserRole(null);
     setClasses([]);
     setCurrentClassId(null);
-    setShowLanding(true);
+    navigate('/');
   };
 
   const handleClassJoined = async (classId: string) => {
@@ -623,10 +768,224 @@ const App: React.FC = () => {
           return [...prev, joinedClass];
         });
       }
+      navigate(`/student/${classId}`);
     } catch (error) {
       console.error('Error fetching joined class:', error);
       // Still set currentClassId, class list will refresh on next load
+      navigate(`/student/${classId}`);
     }
+  };
+
+  // Teacher Dashboard Component
+  const TeacherDashboardRoute: React.FC = () => {
+    if (!session || userRole !== 'teacher') return null;
+    
+    return (
+      <AuthenticatedLayout
+        session={session}
+        userRole="teacher"
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        onSignOut={handleSignOut}
+        tutorialActive={tutorialActive}
+        onTutorialClose={() => setTutorialActive(false)}
+        startTutorial={startTutorial}
+        tutorialStepIndex={tutorialStepIndex}
+        handleTutorialNext={handleTutorialNext}
+        handleTutorialTabClick={handleTutorialTabClick}
+        activeTab={activeTab}
+      >
+        <div className="container mx-auto px-4 py-8">
+          {currentClassId ? (
+            <TeacherDashboard
+              onAddLesson={handleAddLesson}
+              onUpdateLesson={handleUpdateLesson}
+              onDeleteLesson={handleDeleteLesson}
+              onAddUnit={handleAddUnit}
+              onUpdateUnit={handleUpdateUnit}
+              onMoveLesson={handleMoveLesson}
+              onReorderUnits={handleReorderUnits}
+              onReorderLesson={handleReorderLesson}
+              onToggleLock={handleToggleLock}
+              onToggleSequential={handleToggleSequential}
+              teacherId={session.user.id}
+              students={students.filter(s => s.isActive)}
+              submissions={submissions}
+              lessons={lessons}
+              units={units}
+              onGradeSubmission={handleGradeSubmission}
+              classId={currentClassId}
+              classCode={classes.find(c => c.id === currentClassId)?.classCode || '123456'}
+              currentClass={classes.find(c => c.id === currentClassId) || null}
+              onManageRoster={() => { }}
+              classes={classes}
+              onSelectClass={(classId) => {
+                handleSelectClass(classId);
+                navigate(`/teacher/${classId}`);
+              }}
+              onCreateClass={handleCreateClass}
+              onUpdateClass={handleUpdateClass}
+              onDeleteClass={handleDeleteClass}
+              onCopyClassCode={handleCopyClassCode}
+              forceAdvancedMode={tutorialActive ? true : undefined}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
+          ) : (
+            <div className="max-w-md mx-auto py-12">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200">Welcome to CanvasClassroom</h2>
+                <p className="text-slate-500 dark:text-slate-400">Get started by creating your first class.</p>
+              </div>
+              <ClassManager
+                classes={classes}
+                currentClassId={currentClassId}
+                teacherId={session.user.id}
+                onSelectClass={(classId) => {
+                  handleSelectClass(classId);
+                  navigate(`/teacher/${classId}`);
+                }}
+                onCreateClass={handleCreateClass}
+                onUpdateClass={handleUpdateClass}
+                onDeleteClass={handleDeleteClass}
+                onCopyClassCode={handleCopyClassCode}
+              />
+            </div>
+          )}
+        </div>
+      </AuthenticatedLayout>
+    );
+  };
+
+  // Teacher Class Route Component
+  const TeacherClassRoute: React.FC = () => {
+    const { classId } = useParams<{ classId: string }>();
+    
+    useEffect(() => {
+      if (classId && classId !== currentClassId) {
+        handleSelectClass(classId);
+      }
+    }, [classId]);
+
+    if (!session || userRole !== 'teacher') return null;
+    if (!classId || !currentClassId) return <Navigate to="/teacher" replace />;
+
+    return (
+      <AuthenticatedLayout
+        session={session}
+        userRole="teacher"
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        onSignOut={handleSignOut}
+        tutorialActive={tutorialActive}
+        onTutorialClose={() => setTutorialActive(false)}
+        startTutorial={startTutorial}
+        tutorialStepIndex={tutorialStepIndex}
+        handleTutorialNext={handleTutorialNext}
+        handleTutorialTabClick={handleTutorialTabClick}
+        activeTab={activeTab}
+      >
+        <div className="container mx-auto px-4 py-8">
+          <TeacherDashboard
+            onAddLesson={handleAddLesson}
+            onUpdateLesson={handleUpdateLesson}
+            onDeleteLesson={handleDeleteLesson}
+            onAddUnit={handleAddUnit}
+            onUpdateUnit={handleUpdateUnit}
+            onMoveLesson={handleMoveLesson}
+            onReorderUnits={handleReorderUnits}
+            onReorderLesson={handleReorderLesson}
+            onToggleLock={handleToggleLock}
+            onToggleSequential={handleToggleSequential}
+            teacherId={session.user.id}
+            students={students.filter(s => s.isActive)}
+            submissions={submissions}
+            lessons={lessons}
+            units={units}
+            onGradeSubmission={handleGradeSubmission}
+            classId={currentClassId}
+            classCode={classes.find(c => c.id === currentClassId)?.classCode || '123456'}
+            currentClass={classes.find(c => c.id === currentClassId) || null}
+            onManageRoster={() => { }}
+            classes={classes}
+            onSelectClass={(id) => {
+              handleSelectClass(id);
+              navigate(`/teacher/${id}`);
+            }}
+            onCreateClass={handleCreateClass}
+            onUpdateClass={handleUpdateClass}
+            onDeleteClass={handleDeleteClass}
+            onCopyClassCode={handleCopyClassCode}
+            forceAdvancedMode={tutorialActive ? true : undefined}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        </div>
+      </AuthenticatedLayout>
+    );
+  };
+
+  // Student View Route Component
+  const StudentViewRoute: React.FC = () => {
+    const { classId } = useParams<{ classId?: string }>();
+
+    useEffect(() => {
+      if (classId && classId !== currentClassId) {
+        handleSelectClass(classId);
+      }
+    }, [classId]);
+
+    if (!session || userRole !== 'student') return null;
+    if (!studentProfile) {
+      return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading profile...</div>;
+    }
+
+    if (!currentClassId) {
+      return (
+        <AuthenticatedLayout
+          session={session}
+          userRole="student"
+          isDarkMode={isDarkMode}
+          setIsDarkMode={setIsDarkMode}
+          onSignOut={handleSignOut}
+          tutorialActive={false}
+          onTutorialClose={() => {}}
+          startTutorial={() => {}}
+          tutorialStepIndex={0}
+          handleTutorialNext={() => {}}
+          handleTutorialTabClick={() => {}}
+          activeTab="planner"
+        >
+          <div className="container mx-auto px-4 py-8">
+            <JoinClass student={studentProfile} onClassJoined={handleClassJoined} />
+          </div>
+        </AuthenticatedLayout>
+      );
+    }
+
+    return (
+      <AuthenticatedLayout
+        session={session}
+        userRole="student"
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        onSignOut={handleSignOut}
+        tutorialActive={false}
+        startTutorial={() => {}}
+        tutorialStepIndex={0}
+        handleTutorialNext={() => {}}
+        handleTutorialTabClick={() => {}}
+        activeTab="planner"
+      >
+        <StudentView
+          lessons={lessons}
+          units={units}
+          onSubmitLesson={handleSubmitLesson}
+          onUpdateProgress={handleUpdateProgress}
+          submissions={submissions.filter(s => studentProfile && s.studentId === studentProfile.id)}
+        />
+      </AuthenticatedLayout>
+    );
   };
 
   if (loading) {
@@ -650,162 +1009,137 @@ const App: React.FC = () => {
     );
   }
 
-  if (showLanding) {
+  // If on root domain, only show HomePage and redirect app routes
+  if (!isAppSubdomain) {
     return (
-      <HomePage 
-        onLogin={() => setShowLanding(false)} 
-        onLaunch={() => setShowLanding(false)}
-        isLoggedIn={!!session}
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-      />
+      <Routes>
+        <Route 
+          path="/" 
+          element={
+            <HomePage 
+              onLogin={() => {
+                // Redirect to app subdomain for login
+                if (typeof window !== 'undefined') {
+                  window.location.href = `https://app.canvasclassroom.com/auth`;
+                }
+              }} 
+              onLaunch={() => {
+                // Redirect to app subdomain
+                if (typeof window !== 'undefined') {
+                  if (session) {
+                    const route = userRole === 'teacher' ? '/teacher' : '/student';
+                    window.location.href = `https://app.canvasclassroom.com${route}`;
+                  } else {
+                    window.location.href = 'https://app.canvasclassroom.com/auth';
+                  }
+                }
+              }}
+              isLoggedIn={!!session}
+              isDarkMode={isDarkMode}
+              onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+            />
+          } 
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     );
   }
 
-  if (!session) {
-    return <AuthPage onAuthSuccess={() => {}} />;
-  }
-
-  // Ensure student profile is loaded before rendering student views
-  if (userRole === 'student' && !studentProfile) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading profile...</div>;
-  }
-
-  // If student is logged in but hasn't joined any class (and currentClassId is null), show Join Class
-  if (userRole === 'student' && !currentClassId && studentProfile) {
-    return <JoinClass student={studentProfile} onClassJoined={handleClassJoined} />;
-  }
-
+  // On app subdomain, show the full app
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300">
-
-      {/* Tutorial Overlay - Only for teacher view */}
-      {userRole === 'teacher' && (
-        <TutorialOverlay
-          isOpen={tutorialActive}
-          onClose={() => setTutorialActive(false)}
-          currentStepIndex={tutorialStepIndex}
-          onNextStep={handleTutorialNext}
-          steps={TEACHER_TUTORIAL}
-          onTabClick={handleTutorialTabClick}
-        />
-      )}
-
-      {/* Navigation Bar */}
-      <nav className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex-shrink-0">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold font-mono text-lg shadow-lg shadow-indigo-500/20">
-              C
-            </div>
-            <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300">
-              CanvasClassroom
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {userRole === 'teacher' && (
-              <button
-                onClick={startTutorial}
-                className="p-2 text-slate-500 hover:text-indigo-500 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-                title="Start Tutorial"
+    <Routes>
+      <Route 
+        path="/" 
+        element={
+          session ? (
+            <Navigate 
+              to={userRole === 'teacher' ? '/teacher' : '/student'} 
+              replace 
+            />
+          ) : (
+            <Navigate to="/auth" replace />
+          )
+        } 
+      />
+      <Route 
+        path="/auth" 
+        element={
+          session ? (
+            <Navigate 
+              to={userRole === 'teacher' ? '/teacher' : '/student'} 
+              replace 
+            />
+          ) : (
+            <AuthPage 
+              onAuthSuccess={() => {
+                // Navigation will happen automatically via auth state change listener
+              }} 
+            />
+          )
+        } 
+      />
+      <Route
+        path="/teacher"
+        element={
+          <ProtectedRoute session={session} requiredRole="teacher" loading={loading}>
+            <TeacherDashboardRoute />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/:classId"
+        element={
+          <ProtectedRoute session={session} requiredRole="teacher" loading={loading}>
+            <TeacherClassRoute />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student"
+        element={
+          <ProtectedRoute session={session} requiredRole="student" loading={loading}>
+            <StudentViewRoute />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/:classId"
+        element={
+          <ProtectedRoute session={session} requiredRole="student" loading={loading}>
+            <StudentViewRoute />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/join-class"
+        element={
+          <ProtectedRoute session={session} requiredRole="student" loading={loading}>
+            {studentProfile ? (
+              <AuthenticatedLayout
+                session={session!}
+                userRole="student"
+                isDarkMode={isDarkMode}
+                setIsDarkMode={setIsDarkMode}
+                onSignOut={handleSignOut}
+                tutorialActive={false}
+                startTutorial={() => {}}
+                tutorialStepIndex={0}
+                handleTutorialNext={() => {}}
+                handleTutorialTabClick={() => {}}
+                activeTab="planner"
               >
-                <FaQuestion />
-              </button>
-            )}
-
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2 text-slate-500 hover:text-indigo-500 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-              title="Toggle Theme"
-            >
-              {isDarkMode ? <FaSun /> : <FaMoon />}
-            </button>
-
-            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
-
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                {session.user.user_metadata.name || session.user.email || 'User'} <span className="opacity-50">({userRole === 'teacher' ? 'Teacher' : 'Student'})</span>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="p-2 text-slate-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 transition-colors"
-                title="Sign Out"
-              >
-                <FaRightFromBracket />
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-0 relative">
-        {userRole === 'teacher' ? (
-          <div className="container mx-auto px-4 py-8">
-            {currentClassId ? (
-              <TeacherDashboard
-                onAddLesson={handleAddLesson}
-                onUpdateLesson={handleUpdateLesson}
-                onDeleteLesson={handleDeleteLesson}
-                onAddUnit={handleAddUnit}
-                onUpdateUnit={handleUpdateUnit}
-                onMoveLesson={handleMoveLesson}
-                onReorderUnits={handleReorderUnits}
-                onReorderLesson={handleReorderLesson}
-                onToggleLock={handleToggleLock}
-                onToggleSequential={handleToggleSequential}
-                teacherId={session.user.id}
-                students={students.filter(s => s.isActive)}
-                submissions={submissions}
-                lessons={lessons}
-                units={units}
-                onGradeSubmission={handleGradeSubmission}
-                classId={currentClassId}
-                classCode={classes.find(c => c.id === currentClassId)?.classCode || '123456'}
-                currentClass={classes.find(c => c.id === currentClassId) || null}
-                onManageRoster={() => { }}
-                classes={classes}
-                onSelectClass={handleSelectClass}
-                onCreateClass={handleCreateClass}
-                onUpdateClass={handleUpdateClass}
-                onDeleteClass={handleDeleteClass}
-                onCopyClassCode={handleCopyClassCode}
-                forceAdvancedMode={tutorialActive ? true : undefined}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-              />
-            ) : (
-              <div className="max-w-md mx-auto py-12">
-                <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200">Welcome to CanvasClassroom</h2>
-                  <p className="text-slate-500 dark:text-slate-400">Get started by creating your first class.</p>
+                <div className="container mx-auto px-4 py-8">
+                  <JoinClass student={studentProfile} onClassJoined={handleClassJoined} />
                 </div>
-                <ClassManager
-                  classes={classes}
-                  currentClassId={currentClassId}
-                  teacherId={session.user.id}
-                  onSelectClass={handleSelectClass}
-                  onCreateClass={handleCreateClass}
-                  onUpdateClass={handleUpdateClass}
-                  onDeleteClass={handleDeleteClass}
-                  onCopyClassCode={handleCopyClassCode}
-                />
-              </div>
+              </AuthenticatedLayout>
+            ) : (
+              <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading profile...</div>
             )}
-          </div>
-        ) : (
-          <StudentView
-            lessons={lessons}
-            units={units}
-            onSubmitLesson={handleSubmitLesson}
-            onUpdateProgress={handleUpdateProgress}
-            submissions={submissions.filter(s => studentProfile && s.studentId === studentProfile.id)}
-          />
-        )}
-      </main>
-    </div>
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 };
 
