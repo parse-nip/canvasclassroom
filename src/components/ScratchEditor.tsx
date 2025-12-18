@@ -80,10 +80,7 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
         ref={iframeRef}
         className="w-full h-full border-none"
         title="Scratch Editor"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-modals"
         allow="microphone; camera; serial; usb; bluetooth"
-        scrolling="no"
-        style={{ overflow: 'hidden' }}
       />
     </div>
   );
