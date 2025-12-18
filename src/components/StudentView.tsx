@@ -14,6 +14,8 @@ interface StudentViewProps {
     onSubmitLesson: (lessonId: string, code: string, textAnswer?: string) => void;
     onUpdateProgress: (lessonId: string, code: string, step: number, history?: StepHistory) => void;
     submissions: Submission[];
+    className?: string;
+    classCode?: string;
 }
 
 // Simple markdown component for basic formatting without heavy libraries
@@ -50,7 +52,7 @@ const SimpleMarkdown: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
-const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesson, onUpdateProgress, submissions }) => {
+const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesson, onUpdateProgress, submissions, className, classCode }) => {
     const [activeLesson, setActiveLesson] = useState<LessonPlan | null>(null);
     const [currentCode, setCurrentCode] = useState<string>('');
     const [aiAnalysis, setAiAnalysis] = useState<{ hint: string, encouragement: string } | null>(null);
@@ -269,6 +271,13 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
             <div className="space-y-8 animate-in fade-in max-w-6xl mx-auto pb-12 pt-8 px-4">
                 <div className="text-center py-8">
                     <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">My Coding Map</h2>
+                    {className && classCode && (
+                        <div className="flex items-center justify-center gap-2 mt-3 mb-2">
+                            <span className="text-lg text-slate-600 dark:text-slate-400">{className}</span>
+                            <span className="text-slate-400 dark:text-slate-600">•</span>
+                            <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-lg">{classCode}</span>
+                        </div>
+                    )}
                     <p className="text-slate-500 dark:text-slate-400">Select an unlocked unit to continue your adventure.</p>
                 </div>
 

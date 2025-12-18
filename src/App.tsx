@@ -986,6 +986,8 @@ const App: React.FC = () => {
           onSubmitLesson={handleSubmitLesson}
           onUpdateProgress={handleUpdateProgress}
           submissions={submissions.filter(s => studentProfile && s.studentId === studentProfile.id)}
+          className={classes.find(c => c.id === currentClassId)?.name}
+          classCode={classes.find(c => c.id === currentClassId)?.classCode}
         />
       </AuthenticatedLayout>
     );
