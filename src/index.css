@@ -14,3 +14,25 @@
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+@layer utilities {
+  .bg-grid-slate-200 {
+    background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+    background-size: 24px 24px;
+    animation: grid-move 20s linear infinite;
+  }
+  .dark .bg-grid-slate-200 {
+    background-image: radial-gradient(circle, #1e293b 1px, transparent 1px);
+    background-size: 24px 24px;
+    animation: grid-move 20s linear infinite;
+  }
+}
+
+@keyframes grid-move {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 24px 24px;
+  }
+}

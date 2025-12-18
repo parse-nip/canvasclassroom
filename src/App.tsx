@@ -6,6 +6,7 @@ import ClassManager from './components/ClassManager';
 import StudentRoster from './components/StudentRoster';
 import AuthPage from './components/AuthPage';
 import JoinClass from './components/JoinClass';
+import HomePage from './components/HomePage';
 import { LessonPlan, Student, Submission, Unit, StepHistory, Class } from './types';
 import { supabaseService } from './services/supabaseService';
 import { supabase } from './lib/supabase';
@@ -155,6 +156,7 @@ const App: React.FC = () => {
   // Tutorial State
   const [tutorialActive, setTutorialActive] = useState(false);
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+  const [showLanding, setShowLanding] = useState(true);
   
   // Tab state (lifted for tutorial control)
   const [activeTab, setActiveTab] = useState<'planner' | 'curriculum' | 'grading' | 'analytics' | 'roster' | 'communication' | 'tools' | 'help'>('planner');
@@ -606,6 +608,7 @@ const App: React.FC = () => {
     setUserRole(null);
     setClasses([]);
     setCurrentClassId(null);
+    setShowLanding(true);
   };
 
   const handleClassJoined = async (classId: string) => {
@@ -644,6 +647,18 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
+    );
+  }
+
+  if (showLanding) {
+    return (
+      <HomePage 
+        onLogin={() => setShowLanding(false)} 
+        onLaunch={() => setShowLanding(false)}
+        isLoggedIn={!!session}
+        isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+      />
     );
   }
 
