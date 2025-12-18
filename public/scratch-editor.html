@@ -7,7 +7,7 @@
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 100%; height: 100%; overflow: hidden; }
-      iframe { width: 100%; height: 100%; border: none; display: block; }
+      iframe { width: 100%; height: 100%; border: none; }
     </style>
   </head>
   <body>
@@ -16,39 +16,12 @@
       src="/scratch-gui/index.html"
       allow="clipboard-read; clipboard-write; microphone; camera; serial; usb; bluetooth"
       allowfullscreen
-      scrolling="no"
     ></iframe>
     <script>
       const iframe = document.getElementById('scratch-iframe');
       
       iframe.onload = function() {
         console.log('Scratch GUI loaded');
-        
-        // Hide the Scratch menu bar
-        try {
-          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-          const style = iframeDoc.createElement('style');
-          style.textContent = `
-            [class*="menu-bar_menu-bar"],
-            [class*="menu-bar_main-menu"],
-            [class*="menuBar"],
-            [class*="mainMenu"],
-            .menu-bar,
-            .main-menu {
-              display: none !important;
-            }
-            [class*="page-wrapper"] {
-              height: 100% !important;
-            }
-            [class*="body-wrapper"] {
-              height: 100% !important;
-            }
-          `;
-          iframeDoc.head.appendChild(style);
-        } catch (e) {
-          console.log('Could not hide menu bar:', e);
-        }
-        
         window.parent.postMessage({ type: 'SCRATCH_LOADED' }, '*');
       };
       

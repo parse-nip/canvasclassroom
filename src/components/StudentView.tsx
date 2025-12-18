@@ -14,8 +14,6 @@ interface StudentViewProps {
     onSubmitLesson: (lessonId: string, code: string, textAnswer?: string) => void;
     onUpdateProgress: (lessonId: string, code: string, step: number, history?: StepHistory) => void;
     submissions: Submission[];
-    className?: string;
-    classCode?: string;
 }
 
 // Simple markdown component for basic formatting without heavy libraries
@@ -52,7 +50,7 @@ const SimpleMarkdown: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
-const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesson, onUpdateProgress, submissions, className, classCode }) => {
+const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesson, onUpdateProgress, submissions }) => {
     const [activeLesson, setActiveLesson] = useState<LessonPlan | null>(null);
     const [currentCode, setCurrentCode] = useState<string>('');
     const [aiAnalysis, setAiAnalysis] = useState<{ hint: string, encouragement: string } | null>(null);
@@ -65,7 +63,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
     const [reviewStepIndex, setReviewStepIndex] = useState<number | null>(null);
     const [sidebarWidth, setSidebarWidth] = useState(380);
     const [isResizing, setIsResizing] = useState(false);
-    
+
     const handleStartLesson = (lesson: LessonPlan) => {
         const existingSub = submissions.find(s => s.lessonId === lesson.id);
         setCurrentCode(existingSub ? existingSub.code : lesson.starterCode);
@@ -106,8 +104,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
     const handleSubmit = () => {
         if (activeLesson) {
             onSubmitLesson(activeLesson.id, currentCode, reflectionAnswer);
-            // Don't automatically return to map - let the user decide
-            // setActiveLesson(null);
+            setActiveLesson(null);
         }
     };
 
@@ -272,13 +269,6 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
             <div className="space-y-8 animate-in fade-in max-w-6xl mx-auto pb-12 pt-8 px-4">
                 <div className="text-center py-8">
                     <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">My Coding Map</h2>
-                    {className && classCode && (
-                        <div className="flex items-center justify-center gap-2 mt-3 mb-2">
-                            <span className="text-lg text-slate-600 dark:text-slate-400">{className}</span>
-                            <span className="text-slate-400 dark:text-slate-600">•</span>
-                            <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-lg">{classCode}</span>
-                        </div>
-                    )}
                     <p className="text-slate-500 dark:text-slate-400">Select an unlocked unit to continue your adventure.</p>
                 </div>
 
@@ -712,20 +702,6 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                 <h3 className="text-xl font-bold text-green-800 dark:text-green-300 mb-2">Mission Accomplished!</h3>
                                 <Button onClick={handleSubmit} className="w-full bg-green-600 hover:bg-green-700 text-white shadow-md">
                                     Submit Work <FaPaperPlane className="ml-2" />
-                                </Button>
-                            </div>
-                        )}
-
-                        {/* Submitted State - Show Return to Map button */}
-                        {isReadOnly && !isReviewing && (
-                            <div className="mb-6 p-6 bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-100 dark:border-indigo-900/50 rounded-xl text-center animate-in zoom-in shadow-sm">
-                                <div className="w-16 h-16 bg-white dark:bg-slate-800 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl shadow-sm">
-                                    <FaCircleCheck />
-                                </div>
-                                <h3 className="text-xl font-bold text-indigo-800 dark:text-indigo-300 mb-2">Work Submitted</h3>
-                                <p className="text-sm text-indigo-600 dark:text-indigo-400 mb-4">Your teacher will review your submission.</p>
-                                <Button onClick={() => setActiveLesson(null)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md">
-                                    <FaArrowLeft className="mr-2" /> Return to Coding Map
                                 </Button>
                             </div>
                         )}
