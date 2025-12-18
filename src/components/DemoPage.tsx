@@ -319,6 +319,8 @@ const DemoPage: React.FC<DemoPageProps> = ({ isDarkMode, onToggleTheme }) => {
             onSubmitLesson={noop}
             onUpdateProgress={noop}
             submissions={[]}
+            className={DEMO_CLASS.name}
+            classCode={DEMO_CLASS.classCode}
           />
         )}
       </main>

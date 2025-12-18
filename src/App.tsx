@@ -938,6 +938,22 @@ const App: React.FC = () => {
       }
     }, [classId]);
 
+    // Memoize filtered submissions to prevent unnecessary re-renders
+    const studentSubmissions = React.useMemo(() => 
+      submissions.filter(s => studentProfile && s.studentId === studentProfile.id),
+      [submissions, studentProfile]
+    );
+
+    const currentClassName = React.useMemo(() => 
+      classes.find(c => c.id === currentClassId)?.name,
+      [classes, currentClassId]
+    );
+
+    const currentClassCode = React.useMemo(() => 
+      classes.find(c => c.id === currentClassId)?.classCode,
+      [classes, currentClassId]
+    );
+
     if (!session || userRole !== 'student') return null;
     if (!studentProfile) {
       return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading profile...</div>;
@@ -981,11 +997,14 @@ const App: React.FC = () => {
         activeTab="planner"
       >
         <StudentView
+          key={`student-view-${currentClassId}`}
           lessons={lessons}
           units={units}
           onSubmitLesson={handleSubmitLesson}
           onUpdateProgress={handleUpdateProgress}
-          submissions={submissions.filter(s => studentProfile && s.studentId === studentProfile.id)}
+          submissions={studentSubmissions}
+          className={currentClassName}
+          classCode={currentClassCode}
         />
       </AuthenticatedLayout>
     );
