@@ -8,6 +8,7 @@ import StudentRoster from './components/StudentRoster';
 import AuthPage from './components/AuthPage';
 import JoinClass from './components/JoinClass';
 import HomePage from './components/HomePage';
+import DemoPage from './components/DemoPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { LessonPlan, Student, Submission, Unit, StepHistory, Class } from './types';
 import { supabaseService } from './services/supabaseService';
@@ -240,12 +241,14 @@ const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Detect which subdomain we're on
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isDemoSubdomain = hostname === 'demo.canvasclassroom.com' || hostname.startsWith('demo.');
+  
   // Detect if we're on the app subdomain
   // In production: app.canvasclassroom.com = app, canvasclassroom.com = homepage
   // In development: use VITE_APP_SUBDOMAIN env var or default to app subdomain
   const isAppSubdomain = typeof window !== 'undefined' && (() => {
-    const hostname = window.location.hostname;
-    
     // Production: check actual subdomain
     if (hostname === 'app.canvasclassroom.com' || hostname.startsWith('app.')) {
       return true;
@@ -987,6 +990,23 @@ const App: React.FC = () => {
       </AuthenticatedLayout>
     );
   };
+
+  // Demo subdomain - show demo page (no auth required)
+  if (isDemoSubdomain) {
+    return (
+      <Routes>
+        <Route 
+          path="*" 
+          element={
+            <DemoPage 
+              isDarkMode={isDarkMode}
+              onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+            />
+          } 
+        />
+      </Routes>
+    );
+  }
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading...</div>;

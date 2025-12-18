@@ -29,6 +29,16 @@
           "value": "app.canvasclassroom.com"
         }
       ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html",
+      "has": [
+        {
+          "type": "host",
+          "value": "demo.canvasclassroom.com"
+        }
+      ]
     }
   ],
   "headers": [
