@@ -161,12 +161,22 @@ const App: React.FC = () => {
 
   // Auth Effect
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('❌ Error getting session:', error);
+        setErrorMessage('Unable to connect to authentication service. Please check your internet connection.');
+        setLoading(false);
+        return;
+      }
       setSession(session);
       if (session) {
         const role = session.user.user_metadata.role;
         setUserRole(role === 'teacher' || role === 'student' ? role : null);
       }
+      setLoading(false);
+    }).catch((err) => {
+      console.error('❌ Fatal error initializing auth:', err);
+      setErrorMessage('Failed to initialize authentication. Please refresh the page.');
       setLoading(false);
     });
 
