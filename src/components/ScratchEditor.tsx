@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 interface ScratchEditorProps {
   initialCode?: string;
@@ -15,34 +15,21 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-
-  // Load Scratch GUI in iframe
+  
+  // Use refs to store latest callback values to avoid effect re-runs
+  const onChangeRef = useRef(onChange);
+  const onExplainErrorRef = useRef(onExplainError);
+  const initialCodeRef = useRef(initialCode);
+  
+  // Update refs when props change
   useEffect(() => {
+    onChangeRef.current = onChange;
+    onExplainErrorRef.current = onExplainError;
+    initialCodeRef.current = initialCode;
+  }, [onChange, onExplainError, initialCode]);
+
+  const loadProject = useCallback((projectData: string) => {
     if (!iframeRef.current) return;
-    iframeRef.current.src = '/scratch-editor.html';
-  }, []);
-
-  // Handle messages from Scratch iframe
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'SCRATCH_LOADED') {
-        setIsLoaded(true);
-        if (initialCode && iframeRef.current) {
-          loadProject(initialCode);
-        }
-      } else if (event.data?.type === 'SCRATCH_ERROR') {
-        onExplainError?.(event.data.message);
-      } else if (event.data?.type === 'SCRATCH_PROJECT_DATA') {
-        onChange?.(JSON.stringify(event.data.project));
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [initialCode, onChange, onExplainError]);
-
-  const loadProject = (projectData: string) => {
-    if (!iframeRef.current || !isLoaded) return;
     try {
       const project = typeof projectData === 'string' ? JSON.parse(projectData) : projectData;
       iframeRef.current.contentWindow?.postMessage({ type: 'LOAD_PROJECT', project }, '*');
@@ -53,18 +40,45 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
         .then(data => {
           iframeRef.current?.contentWindow?.postMessage({ type: 'LOAD_PROJECT', project: data }, '*');
         })
-        .catch(err => onExplainError?.(`Failed to load project: ${err.message}`));
+        .catch(err => onExplainErrorRef.current?.(`Failed to load project: ${err.message}`));
     }
-  };
+  }, []);
 
-  // Auto-save periodically
+  // Load Scratch GUI in iframe - only once on mount
   useEffect(() => {
-    if (!isLoaded || !onChange) return;
+    if (!iframeRef.current) return;
+    iframeRef.current.src = '/scratch-editor.html';
+  }, []);
+
+  // Handle messages from Scratch iframe - stable listener
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SCRATCH_LOADED') {
+        setIsLoaded(true);
+        if (initialCodeRef.current && iframeRef.current) {
+          loadProject(initialCodeRef.current);
+        }
+      } else if (event.data?.type === 'SCRATCH_ERROR') {
+        onExplainErrorRef.current?.(event.data.message);
+      } else if (event.data?.type === 'SCRATCH_PROJECT_DATA') {
+        onChangeRef.current?.(JSON.stringify(event.data.project));
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [loadProject]);
+
+  // Auto-save periodically - stable interval
+  useEffect(() => {
+    if (!isLoaded) return;
     const interval = setInterval(() => {
-      iframeRef.current?.contentWindow?.postMessage({ type: 'GET_PROJECT' }, '*');
+      if (onChangeRef.current) {
+        iframeRef.current?.contentWindow?.postMessage({ type: 'GET_PROJECT' }, '*');
+      }
     }, 2000);
     return () => clearInterval(interval);
-  }, [isLoaded, onChange]);
+  }, [isLoaded]);
 
   return (
     <div className="w-full h-full relative overflow-hidden">

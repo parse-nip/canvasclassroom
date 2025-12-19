@@ -928,6 +928,23 @@ const App: React.FC = () => {
     );
   };
 
+  // Memoize student submissions to prevent unnecessary re-renders
+  const studentSubmissions = React.useMemo(() => {
+    if (!studentProfile) return [];
+    return submissions.filter(s => s.studentId === studentProfile.id);
+  }, [submissions, studentProfile]);
+
+  // Memoize current class info
+  const currentClassName = React.useMemo(() => 
+    classes.find(c => c.id === currentClassId)?.name,
+    [classes, currentClassId]
+  );
+
+  const currentClassCode = React.useMemo(() => 
+    classes.find(c => c.id === currentClassId)?.classCode,
+    [classes, currentClassId]
+  );
+
   // Student View Route Component
   const StudentViewRoute: React.FC = () => {
     const { classId } = useParams<{ classId?: string }>();
@@ -985,9 +1002,9 @@ const App: React.FC = () => {
           units={units}
           onSubmitLesson={handleSubmitLesson}
           onUpdateProgress={handleUpdateProgress}
-          submissions={submissions.filter(s => studentProfile && s.studentId === studentProfile.id)}
-          className={classes.find(c => c.id === currentClassId)?.name}
-          classCode={classes.find(c => c.id === currentClassId)?.classCode}
+          submissions={studentSubmissions}
+          className={currentClassName}
+          classCode={currentClassCode}
         />
       </AuthenticatedLayout>
     );
