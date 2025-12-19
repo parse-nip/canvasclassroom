@@ -319,7 +319,15 @@ const App: React.FC = () => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only update state for meaningful auth events, not token refreshes
+      // TOKEN_REFRESHED events should not clear state
+      if (event === 'TOKEN_REFRESHED') {
+        // Just update the session without clearing other state
+        setSession(session);
+        return;
+      }
+
       setSession(session);
       if (session) {
         const role = session.user.user_metadata.role;
@@ -334,7 +342,8 @@ const App: React.FC = () => {
             navigate('/student', { replace: true });
           }
         }
-      } else {
+      } else if (event === 'SIGNED_OUT') {
+        // Only clear state on explicit sign out, not on temporary session gaps
         setUserRole(null);
         setClasses([]);
         setCurrentClassId(null);

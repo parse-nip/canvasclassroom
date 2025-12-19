@@ -216,9 +216,63 @@ interface DemoPageProps {
 
 const DemoPage: React.FC<DemoPageProps> = ({ isDarkMode, onToggleTheme }) => {
   const [viewMode, setViewMode] = useState<'teacher' | 'student'>('teacher');
+  const [demoSubmissions, setDemoSubmissions] = useState<Submission[]>([]);
 
-  // Mock handlers that don't do anything (demo mode)
+  // Mock handlers for demo mode
   const noop = () => {};
+
+  // Handle progress updates locally for demo mode
+  const handleDemoUpdateProgress = (lessonId: string, code: string, step: number, historyItem?: { stepIndex: number; studentInput: string; feedback: string; passed: boolean }) => {
+    setDemoSubmissions(prev => {
+      const existing = prev.find(s => s.lessonId === lessonId);
+      const updatedHistory = existing?.history ? [...existing.history] : [];
+      
+      if (historyItem) {
+        const historyIndex = updatedHistory.findIndex(h => h.stepIndex === historyItem.stepIndex);
+        if (historyIndex > -1) {
+          updatedHistory[historyIndex] = historyItem;
+        } else {
+          updatedHistory.push(historyItem);
+        }
+      }
+
+      if (existing) {
+        return prev.map(s => s.lessonId === lessonId ? { ...s, code, currentStep: step, history: updatedHistory } : s);
+      } else {
+        return [...prev, {
+          id: `demo-sub-${Date.now()}`,
+          lessonId,
+          studentId: 'demo-student',
+          classId: 'demo-class',
+          code,
+          status: 'Draft' as const,
+          currentStep: step,
+          history: updatedHistory
+        }];
+      }
+    });
+  };
+
+  const handleDemoSubmitLesson = (lessonId: string, code: string, textAnswer?: string) => {
+    setDemoSubmissions(prev => {
+      const existing = prev.find(s => s.lessonId === lessonId);
+      if (existing) {
+        return prev.map(s => s.lessonId === lessonId ? { ...s, code, status: 'Submitted' as const, textAnswer, submittedAt: Date.now() } : s);
+      }
+      return [...prev, {
+        id: `demo-sub-${Date.now()}`,
+        lessonId,
+        studentId: 'demo-student',
+        classId: 'demo-class',
+        code,
+        status: 'Submitted' as const,
+        currentStep: 0,
+        textAnswer,
+        submittedAt: Date.now(),
+        history: []
+      }];
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300">
@@ -316,9 +370,9 @@ const DemoPage: React.FC<DemoPageProps> = ({ isDarkMode, onToggleTheme }) => {
           <StudentView
             lessons={[DEMO_LESSON, DEMO_LESSON_SCRATCH]}
             units={[DEMO_UNIT_P5, DEMO_UNIT_SCRATCH]}
-            onSubmitLesson={noop}
-            onUpdateProgress={noop}
-            submissions={[]}
+            onSubmitLesson={handleDemoSubmitLesson}
+            onUpdateProgress={handleDemoUpdateProgress}
+            submissions={demoSubmissions}
             className={DEMO_CLASS.name}
             classCode={DEMO_CLASS.classCode}
           />
