@@ -137,7 +137,7 @@ const TEACHER_TUTORIAL: TutorialStep[] = [
 ];
 
 // Layout component for authenticated routes
-const AuthenticatedLayout: React.FC<{
+interface AuthenticatedLayoutProps {
   session: Session;
   userRole: 'teacher' | 'student';
   isDarkMode: boolean;
@@ -151,7 +151,9 @@ const AuthenticatedLayout: React.FC<{
   handleTutorialTabClick: (tabId: string) => void;
   activeTab: 'planner' | 'curriculum' | 'grading' | 'analytics' | 'roster' | 'communication' | 'tools' | 'help';
   children: React.ReactNode;
-}> = ({
+}
+
+const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({
   session,
   userRole,
   isDarkMode,
@@ -236,6 +238,92 @@ const AuthenticatedLayout: React.FC<{
     </div>
   );
 };
+
+// Empty callbacks for student layout (stable references)
+const noopCallback = () => {};
+const noopTabClick = (_tabId: string) => {};
+
+// Stable Student View component - defined outside App to prevent remounting on re-renders
+interface StableStudentViewProps {
+  session: Session;
+  isDarkMode: boolean;
+  setIsDarkMode: (value: boolean) => void;
+  onSignOut: () => void;
+  studentProfile: Student | null;
+  currentClassId: string | null;
+  lessons: LessonPlan[];
+  units: Unit[];
+  onSubmitLesson: (lessonId: string, code: string, textAnswer?: string) => void;
+  onUpdateProgress: (lessonId: string, code: string, step: number, history?: StepHistory) => void;
+  studentSubmissions: Submission[];
+  currentClassName?: string;
+  currentClassCode?: string;
+  onClassJoined: (classId: string) => void;
+  onSelectClass: (classId: string) => void;
+}
+
+const StableStudentView: React.FC<StableStudentViewProps> = React.memo(({
+  session,
+  isDarkMode,
+  setIsDarkMode,
+  onSignOut,
+  studentProfile,
+  currentClassId,
+  lessons,
+  units,
+  onSubmitLesson,
+  onUpdateProgress,
+  studentSubmissions,
+  currentClassName,
+  currentClassCode,
+  onClassJoined,
+  onSelectClass,
+}) => {
+  const { classId } = useParams<{ classId?: string }>();
+
+  useEffect(() => {
+    if (classId && classId !== currentClassId) {
+      onSelectClass(classId);
+    }
+  }, [classId, currentClassId, onSelectClass]);
+
+  return (
+    <AuthenticatedLayout
+      session={session}
+      userRole="student"
+      isDarkMode={isDarkMode}
+      setIsDarkMode={setIsDarkMode}
+      onSignOut={onSignOut}
+      tutorialActive={false}
+      onTutorialClose={noopCallback}
+      startTutorial={noopCallback}
+      tutorialStepIndex={0}
+      handleTutorialNext={noopCallback}
+      handleTutorialTabClick={noopTabClick}
+      activeTab="planner"
+    >
+      {!studentProfile ? (
+        <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
+      ) : !currentClassId ? (
+        <div className="container mx-auto px-4 py-8">
+          <JoinClass student={studentProfile} onClassJoined={onClassJoined} />
+        </div>
+      ) : (
+        <StudentView
+          lessons={lessons}
+          units={units}
+          onSubmitLesson={onSubmitLesson}
+          onUpdateProgress={onUpdateProgress}
+          submissions={studentSubmissions}
+          className={currentClassName}
+          classCode={currentClassCode}
+        />
+      )}
+    </AuthenticatedLayout>
+  );
+});
+
+StableStudentView.displayName = 'StableStudentView';
 
 const App: React.FC = () => {
   const navigate = useNavigate();
@@ -529,9 +617,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSelectClass = (classId: string) => {
+  const handleSelectClass = React.useCallback((classId: string) => {
     setCurrentClassId(classId);
-  };
+  }, []);
 
   const handleCopyClassCode = (classCode: string) => {
     navigator.clipboard.writeText(classCode);
@@ -677,7 +765,7 @@ const App: React.FC = () => {
     setUnits(prev => prev.map(u => u.id === unitId ? updated : u));
   };
 
-  const handleSubmitLesson = async (lessonId: string, code: string, textAnswer?: string) => {
+  const handleSubmitLesson = React.useCallback(async (lessonId: string, code: string, textAnswer?: string) => {
     if (!currentClassId || !session || !studentProfile) return;
 
     // Check if submission already exists
@@ -707,45 +795,61 @@ const App: React.FC = () => {
       });
       setSubmissions(prev => [...prev.filter(s => s.lessonId !== lessonId || s.studentId !== studentProfile.id), newSubmission]);
     }
-  };
+  }, [currentClassId, session, studentProfile]);
 
-  const handleUpdateProgress = async (lessonId: string, code: string, step: number, historyItem?: StepHistory) => {
+  const handleUpdateProgress = React.useCallback(async (lessonId: string, code: string, step: number, historyItem?: StepHistory) => {
     if (!currentClassId || !session || !studentProfile) return;
 
-    const existing = submissions.find(s => s.lessonId === lessonId && s.studentId === studentProfile.id);
-    const updatedHistory = existing?.history ? [...existing.history] : [];
+    setSubmissions(prev => {
+      const existing = prev.find(s => s.lessonId === lessonId && s.studentId === studentProfile.id);
+      const updatedHistory = existing?.history ? [...existing.history] : [];
 
-    if (historyItem) {
-      const historyIndex = updatedHistory.findIndex(h => h.stepIndex === historyItem.stepIndex);
-      if (historyIndex > -1) {
-        updatedHistory[historyIndex] = historyItem;
-      } else {
-        updatedHistory.push(historyItem);
+      if (historyItem) {
+        const historyIndex = updatedHistory.findIndex(h => h.stepIndex === historyItem.stepIndex);
+        if (historyIndex > -1) {
+          updatedHistory[historyIndex] = historyItem;
+        } else {
+          updatedHistory.push(historyItem);
+        }
       }
-    }
 
-    if (existing) {
-      // Update existing submission
-      const updated = await supabaseService.updateSubmission(existing.id, {
-        code,
-        currentStep: step,
-        history: updatedHistory
-      });
-      setSubmissions(prev => prev.map(s => s.id === existing.id ? updated : s));
-    } else {
-      // Create new draft submission
-      const newSubmission = await supabaseService.createSubmission({
-        lessonId,
-        studentId: studentProfile.id,
-        classId: currentClassId,
-        code,
-        status: 'Draft',
-        currentStep: step,
-        history: updatedHistory
-      });
-      setSubmissions(prev => [...prev, newSubmission]);
-    }
-  };
+      if (existing) {
+        // Update existing submission - trigger async update
+        supabaseService.updateSubmission(existing.id, {
+          code,
+          currentStep: step,
+          history: updatedHistory
+        }).catch(err => console.error('Error updating progress:', err));
+        
+        return prev.map(s => s.id === existing.id ? { ...s, code, currentStep: step, history: updatedHistory } : s);
+      } else {
+        // Create new draft submission - trigger async create
+        const tempId = `temp-${Date.now()}`;
+        supabaseService.createSubmission({
+          lessonId,
+          studentId: studentProfile.id,
+          classId: currentClassId,
+          code,
+          status: 'Draft',
+          currentStep: step,
+          history: updatedHistory
+        }).then(newSubmission => {
+          setSubmissions(p => p.map(s => s.id === tempId ? newSubmission : s));
+        }).catch(err => console.error('Error creating progress:', err));
+        
+        return [...prev, {
+          id: tempId,
+          lessonId,
+          studentId: studentProfile.id,
+          classId: currentClassId,
+          code,
+          status: 'Draft' as const,
+          currentStep: step,
+          history: updatedHistory
+        }];
+      }
+    });
+  }, [currentClassId, session, studentProfile]);
 
   const handleGradeSubmission = async (submissionId: string, grade: number, comment: string) => {
     const updated = await supabaseService.updateSubmission(submissionId, {
@@ -759,16 +863,16 @@ const App: React.FC = () => {
     setSubmissions(prev => prev.map(sub => sub.id === submissionId ? updated : sub));
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = React.useCallback(async () => {
     await supabase.auth.signOut();
     setSession(null);
     setUserRole(null);
     setClasses([]);
     setCurrentClassId(null);
     navigate('/');
-  };
+  }, [navigate]);
 
-  const handleClassJoined = async (classId: string) => {
+  const handleClassJoined = React.useCallback(async (classId: string) => {
     setCurrentClassId(classId);
     // Fetch the joined class and add to state
     try {
@@ -786,7 +890,7 @@ const App: React.FC = () => {
       // Still set currentClassId, class list will refresh on next load
       navigate(`/student/${classId}`);
     }
-  };
+  }, [navigate]);
 
   // Teacher Dashboard Component
   const TeacherDashboardRoute: React.FC = () => {
@@ -954,55 +1058,9 @@ const App: React.FC = () => {
     [classes, currentClassId]
   );
 
-  // Student View Route Component - Stable rendering to preserve StudentView state
-  const StudentViewRoute: React.FC = () => {
-    const { classId } = useParams<{ classId?: string }>();
 
-    useEffect(() => {
-      if (classId && classId !== currentClassId) {
-        handleSelectClass(classId);
-      }
-    }, [classId]);
-
-    if (!session || userRole !== 'student') return null;
-
-    // Always render the same component tree structure to prevent remounting
-    // This preserves StudentView's internal state (like activeLesson) across renders
-    return (
-      <AuthenticatedLayout
-        session={session}
-        userRole="student"
-        isDarkMode={isDarkMode}
-        setIsDarkMode={setIsDarkMode}
-        onSignOut={handleSignOut}
-        tutorialActive={false}
-        onTutorialClose={() => {}}
-        startTutorial={() => {}}
-        tutorialStepIndex={0}
-        handleTutorialNext={() => {}}
-        handleTutorialTabClick={() => {}}
-        activeTab="planner"
-      >
-        {!studentProfile ? (
-          <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
-        ) : !currentClassId ? (
-          <div className="container mx-auto px-4 py-8">
-            <JoinClass student={studentProfile} onClassJoined={handleClassJoined} />
-          </div>
-        ) : (
-          <StudentView
-            lessons={lessons}
-            units={units}
-            onSubmitLesson={handleSubmitLesson}
-            onUpdateProgress={handleUpdateProgress}
-            submissions={studentSubmissions}
-            className={currentClassName}
-            classCode={currentClassCode}
-          />
-        )}
-      </AuthenticatedLayout>
-    );
-  };
+  // Check if user is student for rendering the student view
+  const isStudentView = session && userRole === 'student';
 
   // Demo subdomain - show demo page (no auth required)
   if (isDemoSubdomain) {
@@ -1131,7 +1189,25 @@ const App: React.FC = () => {
         path="/student"
         element={
           <ProtectedRoute session={session} requiredRole="student" loading={loading}>
-            <StudentViewRoute />
+            {isStudentView && (
+              <StableStudentView
+                session={session}
+                isDarkMode={isDarkMode}
+                setIsDarkMode={setIsDarkMode}
+                onSignOut={handleSignOut}
+                studentProfile={studentProfile}
+                currentClassId={currentClassId}
+                lessons={lessons}
+                units={units}
+                onSubmitLesson={handleSubmitLesson}
+                onUpdateProgress={handleUpdateProgress}
+                studentSubmissions={studentSubmissions}
+                currentClassName={currentClassName}
+                currentClassCode={currentClassCode}
+                onClassJoined={handleClassJoined}
+                onSelectClass={handleSelectClass}
+              />
+            )}
           </ProtectedRoute>
         }
       />
@@ -1139,7 +1215,25 @@ const App: React.FC = () => {
         path="/student/:classId"
         element={
           <ProtectedRoute session={session} requiredRole="student" loading={loading}>
-            <StudentViewRoute />
+            {isStudentView && (
+              <StableStudentView
+                session={session}
+                isDarkMode={isDarkMode}
+                setIsDarkMode={setIsDarkMode}
+                onSignOut={handleSignOut}
+                studentProfile={studentProfile}
+                currentClassId={currentClassId}
+                lessons={lessons}
+                units={units}
+                onSubmitLesson={handleSubmitLesson}
+                onUpdateProgress={handleUpdateProgress}
+                studentSubmissions={studentSubmissions}
+                currentClassName={currentClassName}
+                currentClassCode={currentClassCode}
+                onClassJoined={handleClassJoined}
+                onSelectClass={handleSelectClass}
+              />
+            )}
           </ProtectedRoute>
         }
       />
