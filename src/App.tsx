@@ -945,7 +945,7 @@ const App: React.FC = () => {
     [classes, currentClassId]
   );
 
-  // Student View Route Component
+  // Student View Route Component - Stable rendering to preserve StudentView state
   const StudentViewRoute: React.FC = () => {
     const { classId } = useParams<{ classId?: string }>();
 
@@ -956,33 +956,9 @@ const App: React.FC = () => {
     }, [classId]);
 
     if (!session || userRole !== 'student') return null;
-    if (!studentProfile) {
-      return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">Loading profile...</div>;
-    }
 
-    if (!currentClassId) {
-      return (
-        <AuthenticatedLayout
-          session={session}
-          userRole="student"
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
-          onSignOut={handleSignOut}
-          tutorialActive={false}
-          onTutorialClose={() => {}}
-          startTutorial={() => {}}
-          tutorialStepIndex={0}
-          handleTutorialNext={() => {}}
-          handleTutorialTabClick={() => {}}
-          activeTab="planner"
-        >
-          <div className="container mx-auto px-4 py-8">
-            <JoinClass student={studentProfile} onClassJoined={handleClassJoined} />
-          </div>
-        </AuthenticatedLayout>
-      );
-    }
-
+    // Always render the same component tree structure to prevent remounting
+    // This preserves StudentView's internal state (like activeLesson) across renders
     return (
       <AuthenticatedLayout
         session={session}
@@ -991,21 +967,30 @@ const App: React.FC = () => {
         setIsDarkMode={setIsDarkMode}
         onSignOut={handleSignOut}
         tutorialActive={false}
+        onTutorialClose={() => {}}
         startTutorial={() => {}}
         tutorialStepIndex={0}
         handleTutorialNext={() => {}}
         handleTutorialTabClick={() => {}}
         activeTab="planner"
       >
-        <StudentView
-          lessons={lessons}
-          units={units}
-          onSubmitLesson={handleSubmitLesson}
-          onUpdateProgress={handleUpdateProgress}
-          submissions={studentSubmissions}
-          className={currentClassName}
-          classCode={currentClassCode}
-        />
+        {!studentProfile ? (
+          <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
+        ) : !currentClassId ? (
+          <div className="container mx-auto px-4 py-8">
+            <JoinClass student={studentProfile} onClassJoined={handleClassJoined} />
+          </div>
+        ) : (
+          <StudentView
+            lessons={lessons}
+            units={units}
+            onSubmitLesson={handleSubmitLesson}
+            onUpdateProgress={handleUpdateProgress}
+            submissions={studentSubmissions}
+            className={currentClassName}
+            classCode={currentClassCode}
+          />
+        )}
       </AuthenticatedLayout>
     );
   };
