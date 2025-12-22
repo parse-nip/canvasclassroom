@@ -258,24 +258,29 @@ export function extractProjectId(url: string): string | null {
 }
 
 /**
- * Fetch project metadata from Scratch API
+ * Fetch project metadata from Scratch API via proxy
  */
 async function fetchProjectMetadata(projectId: string): Promise<any> {
-  const response = await fetch(`https://api.scratch.mit.edu/projects/${projectId}`);
+  // Use our proxy endpoint to avoid CORS issues
+  const proxyUrl = `/api/scratch-proxy?projectId=${projectId}&type=metadata`;
+  const response = await fetch(proxyUrl);
   if (!response.ok) {
-    throw new Error(`Failed to fetch project metadata: ${response.status}`);
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(`Failed to fetch project metadata: ${response.status} - ${errorData.error || response.statusText}`);
   }
   return response.json();
 }
 
 /**
- * Fetch project JSON data (blocks, sprites, etc.)
+ * Fetch project JSON data (blocks, sprites, etc.) via proxy
  */
 async function fetchProjectData(projectId: string): Promise<any> {
-  // The project token endpoint gives us the project data
-  const response = await fetch(`https://projects.scratch.mit.edu/${projectId}`);
+  // Use our proxy endpoint to avoid CORS issues
+  const proxyUrl = `/api/scratch-proxy?projectId=${projectId}&type=data`;
+  const response = await fetch(proxyUrl);
   if (!response.ok) {
-    throw new Error(`Failed to fetch project data: ${response.status}`);
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(`Failed to fetch project data: ${response.status} - ${errorData.error || response.statusText}`);
   }
   return response.json();
 }
