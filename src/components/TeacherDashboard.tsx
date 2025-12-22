@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { generateLessonPlan, suggestCurriculum, generateFullCurriculum } from '../services/openRouterService';
 import { supabaseService } from '../services/supabaseService';
 import { LessonPlan, AILessonResponse, Submission, Student, Unit, LessonType, CurriculumSuggestion, FeedbackTemplate, HelpRequest, Class, Announcement, FullCurriculumResponse } from '../types';
-import { FaWandMagicSparkles, FaBookOpen, FaClipboardCheck, FaPlus, FaRobot, FaLayerGroup, FaChartPie, FaLock, FaLockOpen, FaPen, FaXmark, FaGripLines, FaGripVertical, FaArrowDownShortWide, FaCheck, FaCode, FaLightbulb, FaArrowRight, FaCircleExclamation, FaCalendarDays, FaUsers, FaBullhorn, FaToolbox, FaHandsHolding, FaDownload, FaComments, FaDatabase, FaBookmark, FaUserGraduate, FaChevronDown, FaCopy, FaIdCard, FaTrash, FaCircleCheck } from 'react-icons/fa6';
+import { FaWandMagicSparkles, FaBookOpen, FaClipboardCheck, FaPlus, FaRobot, FaLayerGroup, FaChartPie, FaLock, FaLockOpen, FaPen, FaXmark, FaGripLines, FaGripVertical, FaArrowDownShortWide, FaCheck, FaCode, FaLightbulb, FaArrowRight, FaCircleExclamation, FaCalendarDays, FaUsers, FaBullhorn, FaToolbox, FaHandsHolding, FaDownload, FaComments, FaDatabase, FaBookmark, FaUserGraduate, FaChevronDown, FaCopy, FaIdCard, FaTrash, FaCircleCheck, FaLink } from 'react-icons/fa6';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import P5Editor from './P5Editor';
@@ -20,6 +20,7 @@ import StudentAnalytics from './StudentAnalytics';
 import BulkActions from './BulkActions';
 import RubricsManager from './RubricsManager';
 import ClassManager from './ClassManager';
+import ScratchProjectImport from './ScratchProjectImport';
 import { Enrollment, Rubric } from '../types';
 import { CURRICULUM_TEMPLATES } from '../data/curriculumTemplates';
 
@@ -156,6 +157,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [isCurriculumModalOpen, setIsCurriculumModalOpen] = useState(false);
   const [curriculumTheme, setCurriculumTheme] = useState('');
   const [curriculumDuration, setCurriculumDuration] = useState('Semester');
+  const [isScratchImportOpen, setIsScratchImportOpen] = useState(false);
   const [isGeneratingCurriculum, setIsGeneratingCurriculum] = useState(false);
   const [useTemplate, setUseTemplate] = useState(true); // Start with templates
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
@@ -199,6 +201,18 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     setTopic(s.topic);
     setLevel(s.difficulty);
     setSuggestions([]); // Clear suggestions after selection
+  };
+
+  // Handle importing curriculum from Scratch project
+  const handleScratchImportCurriculum = (newUnits: Unit[], newLessons: LessonPlan[]) => {
+    // Add units first
+    newUnits.forEach(unit => onAddUnit(unit));
+    
+    // Small delay then add lessons
+    setTimeout(() => {
+      newLessons.forEach(lesson => onAddLesson(lesson));
+      setActiveTab('curriculum');
+    }, 100);
   };
 
   const handleGenerateCurriculum = async () => {
@@ -1345,6 +1359,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               >
                 <FaWandMagicSparkles className="mr-2" /> AI Curriculum
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsScratchImportOpen(true)}
+                className="mr-2 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900/30"
+              >
+                <FaLink className="mr-2" /> Import from Scratch
+              </Button>
               <input
                 type="text"
                 placeholder="New Unit Title"
@@ -2114,6 +2135,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           </div>
         </div>
       )}
+      {/* Scratch Project Import Modal */}
+      <ScratchProjectImport
+        isOpen={isScratchImportOpen}
+        onClose={() => setIsScratchImportOpen(false)}
+        onImportCurriculum={handleScratchImportCurriculum}
+        classId={classId}
+        existingUnitsCount={units.filter(u => u.classId === classId).length}
+      />
+
       {/* Class Manager Modal */}
       {showClassManager && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">

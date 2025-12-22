@@ -1,5 +1,5 @@
 
-import { AILessonResponse, AICodeAnalysis, AIStepValidation, LessonType, CurriculumSuggestion, FullCurriculumResponse } from "../types";
+import { AILessonResponse, AICodeAnalysis, AIStepValidation, LessonType, CurriculumSuggestion, FullCurriculumResponse, ScratchProjectAnalysis, ScratchCurriculumResponse } from "../types";
 
 // API Key must come from the environment variable
 const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
@@ -527,6 +527,123 @@ Now create a complete curriculum for theme: "${theme}"`;
     return JSON.parse(cleanJson(text)) as FullCurriculumResponse;
   } catch (e) {
     console.error("Failed to parse Curriculum JSON", e, text);
+    return null;
+  }
+};
+
+/**
+ * Generate a full Scratch curriculum from a project analysis
+ * This creates a series of lessons that teach students how to build the analyzed project from scratch
+ */
+export const generateCurriculumFromScratchProject = async (
+  projectSummary: string,
+  projectAnalysis: ScratchProjectAnalysis,
+  lessonCount: number = 8
+): Promise<ScratchCurriculumResponse | null> => {
+  const schemaDescription = `
+    RETURN ONLY VALID JSON. No markdown, no code blocks, just pure JSON.
+    Structure:
+    {
+      "courseTitle": "string (course name based on project)",
+      "description": "string (brief course description)",
+      "projectType": "string (type of project: game, animation, story, art)",
+      "units": [
+        { "title": "string", "description": "string", "order": number }
+      ],
+      "lessons": [
+        { 
+          "unitIndex": number, 
+          "title": "string", 
+          "topic": "string", 
+          "objective": "string", 
+          "difficulty": "Beginner" | "Intermediate" | "Advanced",
+          "description": "string (1 sentence)",
+          "theory": "string (markdown formatted, educational explanation)",
+          "steps": ["string array of 4-6 guided steps"],
+          "starterCode": "{}",
+          "challenge": "string (extension activity)",
+          "tags": ["string array of 2-4 relevant tags"]
+        }
+      ]
+    }
+    `;
+
+  // Determine unit structure based on complexity
+  const complexityGuidance = projectAnalysis.complexity === 'Advanced'
+    ? '3-4 units with 3-4 lessons each (total 10-14 lessons)'
+    : projectAnalysis.complexity === 'Intermediate'
+      ? '3 units with 2-3 lessons each (total 6-9 lessons)'
+      : '2 units with 2-3 lessons each (total 4-6 lessons)';
+
+  const systemPrompt = `You are an expert Scratch curriculum designer for 10-12 year olds.
+    You are creating a curriculum that teaches students how to BUILD a specific Scratch project from scratch.
+    The curriculum should be pedagogically sound, building concepts progressively.
+    Each lesson teaches ONE concept needed to recreate the final project.
+    ${schemaDescription}`;
+
+  const userPrompt = `Create a Scratch curriculum that teaches students to build this project:
+
+${projectSummary}
+
+TARGET: ${lessonCount} lessons (${complexityGuidance})
+
+CRITICAL CURRICULUM DESIGN REQUIREMENTS:
+
+1. **Reverse Engineer the Project**
+   - Analyze what concepts are needed to build this project
+   - Order them from simplest to most complex
+   - Each lesson should add ONE new concept
+   - By the final lesson, students can recreate the entire project
+
+2. **Unit Structure**
+   - Unit 1: Foundation (basic movement, events, looks)
+   - Unit 2: Core Mechanics (the main interactions/game logic)
+   - Unit 3: Polish & Extensions (scoring, effects, finishing touches)
+
+3. **Lesson Format for Scratch**
+   - Theory: Explain the concept with **bold headings**, bullet points
+   - Steps: Use [NEXT] for observations, [TEXT] for questions
+   - Steps: Reference blocks by exact name (e.g., "add a 'when flag clicked' block")
+   - Starter Code: Always "{}" (empty Scratch project)
+   - Challenge: Creative extension of the lesson concept
+   - Tags: Include concept keywords
+
+4. **Progression Example** (for a "Catch the Apple" game):
+   - Lesson 1: "Moving the Basket" - keyboard controls
+   - Lesson 2: "The Falling Apple" - gravity/movement
+   - Lesson 3: "Catching Apples" - collision detection
+   - Lesson 4: "Keeping Score" - variables
+   - Lesson 5: "Game Over" - conditionals
+   - Lesson 6: "Adding Polish" - sounds, effects
+
+5. **Key Concepts Detected in This Project:**
+   ${projectAnalysis.concepts.join(', ')}
+
+6. **Blocks Used:**
+   ${projectAnalysis.uniqueBlockTypes.slice(0, 15).join(', ')}
+
+7. **Sprites:**
+   ${projectAnalysis.sprites.filter(s => !s.isStage).map(s => s.name).join(', ')}
+
+IMPORTANT:
+- DO NOT include robotics/hardware concepts unless the project uses them
+- Each lesson MUST have starterCode: "{}"
+- Build toward the FINAL PROJECT - the last lesson should help complete it
+- Make it FUN and ENGAGING for kids!
+
+Create a curriculum where by the end, students can recreate "${projectAnalysis.title}":`;
+
+  const text = await callOpenRouter([
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt }
+  ], true);
+
+  if (!text) return null;
+
+  try {
+    return JSON.parse(cleanJson(text)) as ScratchCurriculumResponse;
+  } catch (e) {
+    console.error("Failed to parse Scratch Curriculum JSON", e, text);
     return null;
   }
 };

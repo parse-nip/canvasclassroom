@@ -227,3 +227,41 @@ export interface FullCurriculumResponse {
   units: CurriculumUnitRequest[];
   lessons: CurriculumLessonRequest[];
 }
+
+// Scratch Project Analysis Types
+export interface ScratchBlock {
+  opcode: string;
+  category: string;
+  inputs?: Record<string, any>;
+  fields?: Record<string, any>;
+}
+
+export interface ScratchSprite {
+  name: string;
+  isStage: boolean;
+  costumes: number;
+  sounds: number;
+  blocks: ScratchBlock[];
+}
+
+export interface ScratchProjectAnalysis {
+  projectId: string;
+  title: string;
+  author?: string;
+  description?: string;
+  sprites: ScratchSprite[];
+  totalBlocks: number;
+  uniqueBlockTypes: string[];
+  categories: string[];
+  complexity: 'Beginner' | 'Intermediate' | 'Advanced';
+  concepts: string[];
+  projectType?: string; // e.g., 'game', 'animation', 'story', 'art'
+}
+
+export interface ScratchCurriculumResponse {
+  courseTitle: string;
+  description: string;
+  projectType: string;
+  units: CurriculumUnitRequest[];
+  lessons: CurriculumLessonRequest[];
+}
