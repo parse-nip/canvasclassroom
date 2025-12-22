@@ -62,6 +62,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
     const [showTheory, setShowTheory] = useState(true);
     const [reflectionAnswer, setReflectionAnswer] = useState('');
     const [stepTextAnswer, setStepTextAnswer] = useState('');
+    const [selectedChoice, setSelectedChoice] = useState<string>('');
     const [reviewStepIndex, setReviewStepIndex] = useState<number | null>(null);
     const [sidebarWidth, setSidebarWidth] = useState(380);
     const [isResizing, setIsResizing] = useState(false);
@@ -75,6 +76,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
         setShowTheory(true);
         setReflectionAnswer(existingSub?.textAnswer || '');
         setStepTextAnswer('');
+        setSelectedChoice('');
         setReviewStepIndex(null);
     };
 
@@ -127,6 +129,8 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
         const currentInstruction = activeLesson.steps[currentStepIndex];
         const isTextStep = currentInstruction.startsWith('[TEXT]');
         const isNextStep = currentInstruction.startsWith('[NEXT]');
+        const isCodeStep = currentInstruction.startsWith('[CODE]');
+        const isChoiceStep = currentInstruction.startsWith('[CHOICE]');
 
         // Handle Non-Guided Mode (Manual Next)
         if (!activeLesson.isAiGuided) {
@@ -134,16 +138,21 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                 setStepFeedback({ passed: false, message: "Type your answer first!" });
                 return;
             }
+            if (isChoiceStep && !selectedChoice) {
+                setStepFeedback({ passed: false, message: "Please select an answer!" });
+                return;
+            }
 
             // Save progress without validation
             const historyItem: StepHistory = {
                 stepIndex: currentStepIndex,
-                studentInput: isTextStep ? stepTextAnswer : 'Manual Step',
+                studentInput: isTextStep ? stepTextAnswer : isChoiceStep ? selectedChoice : 'Manual Step',
                 feedback: 'Completed.',
                 passed: true
             };
             onUpdateProgress(activeLesson.id, currentCode, currentStepIndex + 1, historyItem);
             setStepTextAnswer('');
+            setSelectedChoice('');
             return;
         }
 
@@ -165,7 +174,68 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
             return;
         }
 
-        // 3. Validation (Guided)
+        // 3. Multiple Choice Step (Guided) - No AI, instant validation
+        if (isChoiceStep) {
+            if (!selectedChoice) {
+                setStepFeedback({ passed: false, message: "Please select an answer!" });
+                return;
+            }
+
+            // Parse choice format: [CHOICE] Question | A: Option | B: Option | C: Option | D: Option | CorrectAnswer
+            const parts = currentInstruction.replace('[CHOICE]', '').split('|').map(p => p.trim());
+            const correctAnswer = parts[parts.length - 1]; // Last part is the correct answer
+            const isCorrect = selectedChoice === correctAnswer;
+
+            const historyItem: StepHistory = {
+                stepIndex: currentStepIndex,
+                studentInput: selectedChoice,
+                feedback: isCorrect ? 'Correct! Well done!' : `Not quite. The correct answer is ${correctAnswer}.`,
+                passed: isCorrect
+            };
+
+            if (isCorrect) {
+                setStepFeedback({ passed: true, message: 'Correct! 🎉' });
+                setTimeout(() => {
+                    onUpdateProgress(activeLesson.id, currentCode, currentStepIndex + 1, historyItem);
+                    setStepFeedback(null);
+                    setSelectedChoice('');
+                }, 1500);
+            } else {
+                setStepFeedback({ passed: false, message: `Not quite. The correct answer is ${correctAnswer}.` });
+            }
+            return;
+        }
+
+        // 4. Code Step (Guided) - Use AI validation like regular code steps
+        if (isCodeStep) {
+            // Treat as regular code validation
+            setIsValidating(true);
+            setStepFeedback(null);
+
+            const result = await validateStep(currentCode, currentInstruction);
+
+            if (result) {
+                if (result.passed) {
+                    setStepFeedback({ passed: true, message: result.feedback });
+                    const historyItem: StepHistory = {
+                        stepIndex: currentStepIndex,
+                        studentInput: currentCode,
+                        feedback: result.feedback,
+                        passed: true
+                    };
+                    setTimeout(() => {
+                        onUpdateProgress(activeLesson.id, currentCode, currentStepIndex + 1, historyItem);
+                        setStepFeedback(null);
+                    }, 2000);
+                } else {
+                    setStepFeedback({ passed: false, message: result.feedback });
+                }
+            }
+            setIsValidating(false);
+            return;
+        }
+
+        // 5. Regular Validation (Guided)
         setIsValidating(true);
         setStepFeedback(null);
 
@@ -420,10 +490,23 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
     const currentInstructionRaw = activeLesson.steps[stepToShowIndex] || "";
     const isTextStep = currentInstructionRaw.startsWith('[TEXT]');
     const isNextStep = currentInstructionRaw.startsWith('[NEXT]');
+    const isCodeStep = currentInstructionRaw.startsWith('[CODE]');
+    const isChoiceStep = currentInstructionRaw.startsWith('[CHOICE]');
 
     let displayInstruction = currentInstructionRaw;
+    let choiceOptions: string[] = [];
+    let choiceCorrectAnswer = '';
+
     if (isTextStep) displayInstruction = currentInstructionRaw.replace('[TEXT]', '').trim();
     if (isNextStep) displayInstruction = currentInstructionRaw.replace('[NEXT]', '').trim();
+    if (isCodeStep) displayInstruction = currentInstructionRaw.replace('[CODE]', '').trim();
+    if (isChoiceStep) {
+        // Parse: [CHOICE] Question | A: Option | B: Option | C: Option | D: Option | CorrectAnswer
+        const parts = currentInstructionRaw.replace('[CHOICE]', '').split('|').map(p => p.trim());
+        displayInstruction = parts[0];
+        choiceOptions = parts.slice(1, -1); // All except first (question) and last (answer)
+        choiceCorrectAnswer = parts[parts.length - 1];
+    }
 
     return (
         <div className="flex flex-col animate-in slide-in-from-right-4 h-full w-full absolute inset-0 bg-white dark:bg-slate-950">
@@ -626,6 +709,16 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                             <FaEye /> Observation
                                         </div>
                                     )}
+                                    {isCodeStep && (
+                                        <div className="mb-2 text-[10px] font-bold text-green-600 dark:text-green-400 uppercase flex items-center gap-1">
+                                            <FaCode /> Coding Challenge
+                                        </div>
+                                    )}
+                                    {isChoiceStep && (
+                                        <div className="mb-2 text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase flex items-center gap-1">
+                                            <FaCheckCircle /> Multiple Choice
+                                        </div>
+                                    )}
 
                                     <div className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-snug">
                                         {displayInstruction}
@@ -639,15 +732,44 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                             <p className="text-green-700 dark:text-green-300">{stepHistory.feedback}</p>
                                         </div>
                                     ) : (
-                                        isTextStep && (
-                                            <textarea
-                                                className="w-full mt-3 p-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                                rows={2}
-                                                placeholder="Type your answer..."
-                                                value={stepTextAnswer}
-                                                onChange={(e) => setStepTextAnswer(e.target.value)}
-                                            />
-                                        )
+                                        <>
+                                            {isTextStep && (
+                                                <textarea
+                                                    className="w-full mt-3 p-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                                    rows={2}
+                                                    placeholder="Type your answer..."
+                                                    value={stepTextAnswer}
+                                                    onChange={(e) => setStepTextAnswer(e.target.value)}
+                                                />
+                                            )}
+                                            {isChoiceStep && (
+                                                <div className="mt-4 space-y-2">
+                                                    {choiceOptions.map((option, idx) => {
+                                                        const optionLetter = option.split(':')[0].trim();
+                                                        return (
+                                                            <label
+                                                                key={idx}
+                                                                className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                                                    selectedChoice === optionLetter
+                                                                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                                                                        : 'border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-800'
+                                                                }`}
+                                                            >
+                                                                <input
+                                                                    type="radio"
+                                                                    name="choice"
+                                                                    value={optionLetter}
+                                                                    checked={selectedChoice === optionLetter}
+                                                                    onChange={(e) => setSelectedChoice(e.target.value)}
+                                                                    className="w-4 h-4 text-orange-600 focus:ring-orange-500"
+                                                                />
+                                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{option}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </div>
 
@@ -670,6 +792,10 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                             <>Next Step <FaChevronRight className="ml-2" /></>
                                         ) : isTextStep ? (
                                             <>Check Answer <FaChevronRight className="ml-2" /></>
+                                        ) : isChoiceStep ? (
+                                            <>Submit Answer <FaChevronRight className="ml-2" /></>
+                                        ) : isCodeStep ? (
+                                            <>Check My Code <FaChevronRight className="ml-2" /></>
                                         ) : (
                                             <>Check My Code <FaChevronRight className="ml-2" /></>
                                         )}
