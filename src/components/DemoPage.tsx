@@ -39,7 +39,7 @@ const DEMO_UNIT_SCRATCH: Unit = {
 const DEMO_LESSON: LessonPlan = {
   id: 'demo-lesson',
   classId: 'demo-class',
-  unitId: 'demo-unit',
+  unitId: 'demo-unit-p5',
   type: 'Lesson',
   topic: 'Creating Colorful Art with Shapes',
   title: 'Rainbow Robot: Drawing with p5.js',
