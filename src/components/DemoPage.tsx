@@ -41,61 +41,93 @@ const DEMO_LESSON: LessonPlan = {
   classId: 'demo-class',
   unitId: 'demo-unit',
   type: 'Lesson',
-  topic: 'Drawing Shapes',
-  title: 'Drawing Your First Shapes',
+  topic: 'Creating Colorful Art with Shapes',
+  title: 'Rainbow Robot: Drawing with p5.js',
   difficulty: 'Beginner',
-  objective: 'Learn how to draw basic shapes in p5.js',
-  description: 'In this lesson, you\'ll learn how to use p5.js to draw circles, rectangles, and other basic shapes on the canvas.',
-  theory: `# Drawing Shapes in p5.js
+  objective: 'Learn to draw shapes and use RGB colors to create colorful digital art',
+  description: 'Create a friendly robot character using basic shapes and learn how computers mix colors using Red, Green, and Blue values.',
+  theory: `# Creating Art with Shapes and Colors
 
-p5.js provides several functions to draw shapes on the canvas:
+Think of your canvas like a digital piece of paper. You can draw shapes anywhere on it!
 
-## Basic Shapes
+## The Coordinate System
 
-- **circle(x, y, diameter)** - Draws a circle
+Your canvas is like a graph:
+- **X** goes left-to-right (horizontal)
+- **Y** goes top-to-bottom (vertical)
+- The top-left corner is **(0, 0)**
+- The center of a 400x400 canvas is **(200, 200)**
+
+## Drawing Shapes
+
+- **circle(x, y, diameter)** - Draws a perfect circle
+  - Example: \`circle(200, 200, 100)\` draws a circle at center with diameter 100
 - **rect(x, y, width, height)** - Draws a rectangle
-- **ellipse(x, y, width, height)** - Draws an ellipse
-- **line(x1, y1, x2, y2)** - Draws a line
+  - Example: \`rect(150, 250, 100, 50)\` draws a rectangle starting at (150, 250) that's 100 wide and 50 tall
+- **ellipse(x, y, width, height)** - Draws an ellipse (oval)
+- **triangle(x1, y1, x2, y2, x3, y3)** - Draws a triangle using three points
 
-## Color Functions
+## RGB Color System
 
-- **fill(r, g, b)** - Sets the fill color
-- **stroke(r, g, b)** - Sets the stroke (outline) color
-- **noFill()** - Removes fill
-- **noStroke()** - Removes stroke
+Computers mix colors using three values:
+- **R**ed (0-255) - How much red light
+- **G**reen (0-255) - How much green light  
+- **B**lue (0-255) - How much blue light
 
-## Example
+**Common Colors:**
+- \`fill(255, 0, 0)\` = Pure Red 🔴
+- \`fill(0, 255, 0)\` = Pure Green 🟢
+- \`fill(0, 0, 255)\` = Pure Blue 🔵
+- \`fill(255, 255, 0)\` = Yellow (Red + Green) 🟡
+- \`fill(255, 165, 0)\` = Orange 🟠
+- \`fill(255, 192, 203)\` = Pink 💗
 
-\`\`\`javascript
-function setup() {
-  createCanvas(400, 400);
-}
+**Important:** \`fill()\` sets the color for ALL shapes drawn after it, until you change it again!
 
-function draw() {
-  background(220);
-  fill(255, 0, 0); // Red
-  circle(200, 200, 100); // Circle at center
-}
-\`\`\``,
+## Drawing Order Matters!
+
+Shapes are drawn in order - later shapes appear on top of earlier ones. Think of it like stacking paper cutouts!`,
   steps: [
-    'Create a canvas using createCanvas(400, 400) in the setup() function',
-    'Set the background color using background(220) in draw()',
-    'Draw a circle at the center using circle(200, 200, 50)',
-    'Add a fill color using fill(255, 0, 0) before drawing',
-    'Draw a rectangle below the circle using rect(150, 250, 100, 50)'
+    '[NEXT] Run the code and look at the robot. What shapes do you see?',
+    '[TEXT] What color is the robot\'s head? What RGB values create that color?',
+    'Change the head color to blue by modifying the fill() before the circle',
+    '[TEXT] If you wanted to make the robot\'s body yellow, what RGB values would you use?',
+    'Add a second circle for the robot\'s other eye at position (250, 150)',
+    'Draw a rectangle for the robot\'s mouth below the eyes',
+    '[TEXT] Why does the mouth appear on top of the head? (Hint: think about drawing order)',
+    'Change the background color to a sky blue: background(135, 206, 235)',
+    'Add two rectangles for robot arms on the sides of the body'
   ],
   starterCode: `function setup() {
   createCanvas(400, 400);
 }
 
 function draw() {
-  background(220);
-  // Your code here
+  // Sky blue background
+  background(135, 206, 235);
+  
+  // Robot head (circle)
+  fill(200, 200, 200); // Light gray
+  circle(200, 150, 120);
+  
+  // Robot body (rectangle)
+  fill(100, 150, 255); // Blue
+  rect(150, 200, 100, 120);
+  
+  // Robot eye (circle)
+  fill(255, 255, 255); // White
+  circle(180, 150, 30);
+  
+  // Eye pupil (small black circle)
+  fill(0, 0, 0); // Black
+  circle(180, 150, 15);
+  
+  // Add more robot parts here!
 }`,
-  challenge: 'Create a simple scene with at least 3 different shapes (circle, rectangle, and one other shape) with different colors.',
+  challenge: 'Create your own unique robot character! Add: 2 eyes, a mouth, 2 arms, 2 legs, and antennas. Use at least 5 different colors. Make it creative - maybe a robot superhero or robot pet!',
   isAiGuided: true,
-  tags: ['shapes', 'drawing', 'basics'],
-  reflectionQuestion: 'What did you find most interesting about drawing shapes? What would you like to learn next?',
+  tags: ['shapes', 'drawing', 'colors', 'rgb', 'creative'],
+  reflectionQuestion: 'What was the trickiest part about positioning shapes? How did you figure out where to place each part? If you could add one more feature to your robot, what would it be and why?',
   editorType: 'p5'
 };
 
@@ -104,58 +136,91 @@ const DEMO_LESSON_SCRATCH: LessonPlan = {
   classId: 'demo-class',
   unitId: 'demo-unit-scratch',
   type: 'Lesson',
-  topic: 'Making Sprites Move',
-  title: 'Animate Your Sprite',
+  topic: 'Interactive Sprite Control',
+  title: 'Create Your Own Game Controller',
   difficulty: 'Beginner',
-  objective: 'Learn how to make sprites move and interact in Scratch',
-  description: 'In this lesson, you\'ll learn how to use motion blocks to make your sprite move around the stage and respond to keyboard input.',
-  theory: `# Making Sprites Move in Scratch
+  objective: 'Learn to control sprites with keyboard input and create smooth, responsive movement',
+  description: 'Build an interactive sprite that responds to your keyboard commands, learning how events, loops, and conditionals work together to create game-like controls.',
+  theory: `# Controlling Sprites with Keyboard Input
 
-Scratch uses visual blocks to control sprites (characters) on the stage. Here are the key concepts:
+In Scratch, sprites are characters that can move, change, and interact! Today you'll learn to control them like a video game character.
 
-## Motion Blocks
+## Understanding the Stage
 
-- **move (10) steps** - Moves the sprite forward
-- **turn right (15) degrees** - Rotates the sprite clockwise
-- **turn left (15) degrees** - Rotates the sprite counter-clockwise
-- **go to x: (0) y: (0)** - Moves sprite to specific coordinates
-- **glide (1) secs to x: (0) y: (0)** - Smoothly moves sprite to position
+The Scratch stage is like a coordinate grid:
+- **X-axis**: Left (-240) to Right (+240)
+- **Y-axis**: Bottom (-180) to Top (+180)
+- **Center**: (0, 0)
 
-## Control Blocks
+## Key Concepts
 
-- **when [flag] clicked** - Starts the script when green flag is clicked
-- **forever** - Repeats blocks inside continuously
-- **if then** - Runs blocks only if condition is true
+### 1. Events - Starting Your Code
+- **when [flag] clicked** - Runs code when you click the green flag
+- This is how you START your program!
 
-## Sensing Blocks
+### 2. Control Blocks - Making Things Repeat
+- **forever** - Repeats blocks inside continuously (like a game loop)
+- This keeps checking for input over and over
+- **if then** - Only runs code when a condition is true
 
-- **key [space] pressed?** - Checks if a key is being pressed
-- **touching [edge]?** - Checks if sprite is touching something
+### 3. Motion Blocks - Moving Your Sprite
+- **move (10) steps** - Moves forward in the direction the sprite is facing
+- **turn right (15) degrees** - Rotates clockwise
+- **turn left (15) degrees** - Rotates counter-clockwise
+- **point in direction (90)** - Points sprite in a specific direction (0=up, 90=right, 180=down, -90=left)
 
-## Example
+### 4. Sensing Blocks - Detecting Input
+- **key [space] pressed?** - Checks if a key is currently being pressed
+- Returns true (pressed) or false (not pressed)
+- Use this inside an **if** block to check for input
 
-To make a sprite move with arrow keys:
+## The Pattern for Keyboard Control
 
-1. Use "when flag clicked" to start
-2. Use "forever" loop to continuously check for key presses
-3. Use "if key [right arrow] pressed?" to detect input
-4. Use "move (10) steps" to move the sprite
+Here's the secret pattern for smooth keyboard control:
 
-Try creating a sprite that moves in all four directions!`,
+1. **Start with "when flag clicked"** - Begin your program
+2. **Add "forever" loop** - Keep checking for input continuously
+3. **Inside forever, add "if key [arrow] pressed?"** - Check each key
+4. **Inside if, add motion blocks** - Move when key is pressed
+
+## Why Use "forever"?
+
+Without "forever", your code would only check for keys ONCE. With "forever", it checks 30 times per second, making movement feel smooth and responsive - just like a real game!
+
+## Direction Tips
+
+- **Right Arrow**: Use "point in direction (90)" then "move (10) steps"
+- **Left Arrow**: Use "point in direction (-90)" then "move (10) steps"  
+- **Up Arrow**: Use "point in direction (0)" then "move (10) steps"
+- **Down Arrow**: Use "point in direction (180)" then "move (10) steps"
+
+Or use "change x by" and "change y by" for direct movement!
+
+## Edge Detection
+
+- **touching [edge]?** - Checks if sprite hit the edge
+- Use this to make sprites bounce or stop at boundaries
+
+**Pro Tip:** You can combine multiple "if" blocks inside "forever" to check all arrow keys at once!`,
   steps: [
-    'Click the green flag to start your project',
-    'Add a "when flag clicked" block to start your script',
-    'Add a "forever" loop to continuously check for input',
-    'Inside the loop, add an "if key [right arrow] pressed?" block',
-    'Add "move (10) steps" inside the if block to move right',
-    'Repeat for left, up, and down arrow keys',
-    'Test your sprite by pressing the arrow keys!'
+    '[NEXT] Click the green flag. What happens? Why does the sprite only move once?',
+    '[TEXT] What block do you need to make the sprite keep checking for keyboard input?',
+    'Add a "forever" loop around your motion blocks',
+    'Click the green flag again. What\'s different now?',
+    '[TEXT] Why does "forever" make the movement feel smoother?',
+    'Add an "if key [right arrow] pressed?" block inside the forever loop',
+    'Put "change x by (10)" inside the if block',
+    '[TEXT] What happens when you hold down the right arrow key?',
+    'Add three more "if" blocks for left arrow (change x by -10), up arrow (change y by 10), and down arrow (change y by -10)',
+    'Test all four arrow keys. Does your sprite move smoothly in all directions?',
+    '[TEXT] What would happen if you removed the "forever" loop? Why?',
+    'Add "if touching [edge]?" then "turn around (180 degrees)" to make your sprite bounce off walls'
   ],
-  starterCode: '{}', // Empty Scratch project
-  challenge: 'Create a sprite that moves in all four directions using arrow keys, and make it bounce off the edges of the stage.',
+  starterCode: '{}', // Empty Scratch project - students start from scratch!
+  challenge: 'Create a complete game controller! Make your sprite: 1) Move smoothly with arrow keys, 2) Bounce off all four edges, 3) Change color when you press the spacebar, 4) Make a sound when it hits an edge. Bonus: Add a second sprite that follows your first sprite!',
   isAiGuided: true,
-  tags: ['motion', 'control', 'sensing', 'animation'],
-  reflectionQuestion: 'What was the most interesting thing you learned about making sprites move? How could you use this in a game?',
+  tags: ['motion', 'control', 'sensing', 'events', 'interactive', 'game-development'],
+  reflectionQuestion: 'What was the most important concept you learned about how games work? How does the "forever" loop make your sprite feel more responsive? If you were making a real game, what other controls or features would you add?',
   editorType: 'scratch'
 };
 
