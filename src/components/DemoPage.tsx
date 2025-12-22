@@ -41,93 +41,138 @@ const DEMO_LESSON: LessonPlan = {
   classId: 'demo-class',
   unitId: 'demo-unit-p5',
   type: 'Lesson',
-  topic: 'Creating Colorful Art with Shapes',
-  title: 'Rainbow Robot: Drawing with p5.js',
+  topic: 'Your First Shapes and Colors',
+  title: 'Drawing Shapes and Colors in p5.js',
   difficulty: 'Beginner',
-  objective: 'Learn to draw shapes and use RGB colors to create colorful digital art',
-  description: 'Create a friendly robot character using basic shapes and learn how computers mix colors using Red, Green, and Blue values.',
-  theory: `# Creating Art with Shapes and Colors
+  objective: 'Learn what p5.js is and how to draw your first shapes with colors',
+  description: 'Welcome to p5.js! Learn how to draw circles, rectangles, and other shapes, and discover how computers create colors using numbers.',
+  theory: `# Welcome to p5.js!
 
-Think of your canvas like a digital piece of paper. You can draw shapes anywhere on it!
+p5.js is a tool that lets you create art and animations using code. Think of it like digital drawing, but instead of using a paintbrush, you write instructions!
 
-## The Coordinate System
+## What is a Canvas?
 
-Your canvas is like a graph:
-- **X** goes left-to-right (horizontal)
-- **Y** goes top-to-bottom (vertical)
-- The top-left corner is **(0, 0)**
-- The center of a 400x400 canvas is **(200, 200)**
+Your **canvas** is like a digital piece of paper. The code \`createCanvas(400, 400)\` creates a drawing space that is 400 pixels wide and 400 pixels tall.
 
-## Drawing Shapes
+## Understanding Coordinates (Where Things Go)
 
-- **circle(x, y, diameter)** - Draws a perfect circle
-  - Example: \`circle(200, 200, 100)\` draws a circle at center with diameter 100
-- **rect(x, y, width, height)** - Draws a rectangle
-  - Example: \`rect(150, 250, 100, 50)\` draws a rectangle starting at (150, 250) that's 100 wide and 50 tall
-- **ellipse(x, y, width, height)** - Draws an ellipse (oval)
-- **triangle(x1, y1, x2, y2, x3, y3)** - Draws a triangle using three points
+Your canvas uses a coordinate system to tell shapes WHERE to appear:
 
-## RGB Color System
+- **X** = horizontal position (left to right)
+- **Y** = vertical position (top to bottom)
+- The **top-left corner** is (0, 0)
+- Moving right increases X
+- Moving down increases Y
 
-Computers mix colors using three values:
-- **R**ed (0-255) - How much red light
-- **G**reen (0-255) - How much green light  
-- **B**lue (0-255) - How much blue light
+**Example:** In a 400x400 canvas:
+- Top-left corner: (0, 0)
+- Center: (200, 200)
+- Bottom-right corner: (400, 400)
 
-**Common Colors:**
-- \`fill(255, 0, 0)\` = Pure Red 🔴
-- \`fill(0, 255, 0)\` = Pure Green 🟢
-- \`fill(0, 0, 255)\` = Pure Blue 🔵
-- \`fill(255, 255, 0)\` = Yellow (Red + Green) 🟡
-- \`fill(255, 165, 0)\` = Orange 🟠
-- \`fill(255, 192, 203)\` = Pink 💗
+## Drawing Your First Shape: circle()
 
-**Important:** \`fill()\` sets the color for ALL shapes drawn after it, until you change it again!
+The \`circle()\` function draws a circle. It needs THREE numbers:
 
-## Drawing Order Matters!
+\`circle(x, y, diameter)\`
 
-Shapes are drawn in order - later shapes appear on top of earlier ones. Think of it like stacking paper cutouts!`,
+- **x** = Where horizontally (left/right position)
+- **y** = Where vertically (up/down position)  
+- **diameter** = How big the circle is (the width across)
+
+**Example:** \`circle(200, 200, 100)\`
+- x = 200 (center horizontally)
+- y = 200 (center vertically)
+- diameter = 100 (100 pixels wide)
+
+## Drawing Rectangles: rect()
+
+The \`rect()\` function draws a rectangle. It needs FOUR numbers:
+
+\`rect(x, y, width, height)\`
+
+- **x** = Where to start (left edge position)
+- **y** = Where to start (top edge position)
+- **width** = How wide the rectangle is
+- **height** = How tall the rectangle is
+
+**Example:** \`rect(100, 150, 200, 100)\`
+- x = 100 (starts 100 pixels from left)
+- y = 150 (starts 150 pixels from top)
+- width = 200 (200 pixels wide)
+- height = 100 (100 pixels tall)
+
+## Adding Colors: fill()
+
+Before drawing a shape, you can set its color using \`fill()\`. Colors use THREE numbers called RGB:
+
+\`fill(red, green, blue)\`
+
+Each number goes from 0 to 255:
+- **0** = none of that color
+- **255** = maximum of that color
+
+**What do the numbers mean?**
+- First number = **Red** (how much red light)
+- Second number = **Green** (how much green light)
+- Third number = **Blue** (how much blue light)
+
+**Color Examples:**
+- \`fill(255, 0, 0)\` = Pure Red (all red, no green, no blue)
+- \`fill(0, 255, 0)\` = Pure Green (no red, all green, no blue)
+- \`fill(0, 0, 255)\` = Pure Blue (no red, no green, all blue)
+- \`fill(255, 255, 0)\` = Yellow (red + green = yellow!)
+- \`fill(255, 165, 0)\` = Orange (lots of red, some green)
+- \`fill(0, 0, 0)\` = Black (no colors = black)
+- \`fill(255, 255, 255)\` = White (all colors = white)
+
+**Important:** Once you use \`fill()\`, ALL shapes drawn after it will be that color until you change it!
+
+## Background Color
+
+\`background()\` fills the entire canvas with one color. You can use:
+- One number: \`background(220)\` = gray (0-255 scale)
+- Three numbers: \`background(135, 206, 235)\` = sky blue (RGB)
+
+## The Two Main Functions
+
+Every p5.js program has two main parts:
+
+1. **setup()** - Runs ONCE when your program starts
+   - Use this to create your canvas: \`createCanvas(400, 400)\`
+
+2. **draw()** - Runs OVER and OVER (60 times per second!)
+   - Use this to draw shapes: \`circle()\`, \`rect()\`, etc.`,
   steps: [
-    '[NEXT] Run the code and look at the robot. What shapes do you see?',
-    '[TEXT] What color is the robot\'s head? What RGB values create that color?',
-    'Change the head color to blue by modifying the fill() before the circle',
-    '[TEXT] If you wanted to make the robot\'s body yellow, what RGB values would you use?',
-    'Add a second circle for the robot\'s other eye at position (250, 150)',
-    'Draw a rectangle for the robot\'s mouth below the eyes',
-    '[TEXT] Why does the mouth appear on top of the head? (Hint: think about drawing order)',
-    'Change the background color to a sky blue: background(135, 206, 235)',
-    'Add two rectangles for robot arms on the sides of the body'
+    '[NEXT] Look at the code. What do you see? There are two functions: setup() and draw()',
+    '[TEXT] What do you think the numbers in createCanvas(400, 400) mean?',
+    'Run the code. What do you see on the screen?',
+    '[TEXT] Look at circle(200, 200, 100). What do you think each number means?',
+    'Change the first number in circle() from 200 to 100. What happens?',
+    '[TEXT] What did changing that number do? (Hint: it changed the X position)',
+    'Change the third number in circle() from 100 to 50. What happens?',
+    '[TEXT] What did changing that number do? (Hint: it changed the size)',
+    'Add a fill() before the circle. Try fill(255, 0, 0). What color appears?',
+    '[TEXT] What do you think fill(255, 0, 0) means? What color is it?',
+    'Try fill(0, 255, 0). What color is this?',
+    'Add a rectangle using rect(150, 250, 100, 50). What do you see?',
+    '[TEXT] What do you think each number in rect(150, 250, 100, 50) means?',
+    'Change the background color. Try background(135, 206, 235). What color is this?',
+    'Draw another circle in a different position with a different color'
   ],
   starterCode: `function setup() {
   createCanvas(400, 400);
 }
 
 function draw() {
-  // Sky blue background
-  background(135, 206, 235);
+  background(220);
   
-  // Robot head (circle)
-  fill(200, 200, 200); // Light gray
-  circle(200, 150, 120);
-  
-  // Robot body (rectangle)
-  fill(100, 150, 255); // Blue
-  rect(150, 200, 100, 120);
-  
-  // Robot eye (circle)
-  fill(255, 255, 255); // White
-  circle(180, 150, 30);
-  
-  // Eye pupil (small black circle)
-  fill(0, 0, 0); // Black
-  circle(180, 150, 15);
-  
-  // Add more robot parts here!
+  // Draw a circle
+  circle(200, 200, 100);
 }`,
-  challenge: 'Create your own unique robot character! Add: 2 eyes, a mouth, 2 arms, 2 legs, and antennas. Use at least 5 different colors. Make it creative - maybe a robot superhero or robot pet!',
+  challenge: 'Create a simple picture using at least 3 shapes (circles, rectangles, or both) with at least 3 different colors. Try making a house, a face, or something creative!',
   isAiGuided: true,
-  tags: ['shapes', 'drawing', 'colors', 'rgb', 'creative'],
-  reflectionQuestion: 'What was the trickiest part about positioning shapes? How did you figure out where to place each part? If you could add one more feature to your robot, what would it be and why?',
+  tags: ['shapes', 'drawing', 'colors', 'rgb', 'basics', 'beginner'],
+  reflectionQuestion: 'What was confusing at first? What do the numbers in circle() and rect() mean now? How did you figure out where to place shapes? What would you like to learn next?',
   editorType: 'p5'
 };
 
@@ -136,91 +181,136 @@ const DEMO_LESSON_SCRATCH: LessonPlan = {
   classId: 'demo-class',
   unitId: 'demo-unit-scratch',
   type: 'Lesson',
-  topic: 'Interactive Sprite Control',
-  title: 'Create Your Own Game Controller',
+  topic: 'Moving Your First Sprite',
+  title: 'Getting Started with Scratch: Making Sprites Move',
   difficulty: 'Beginner',
-  objective: 'Learn to control sprites with keyboard input and create smooth, responsive movement',
-  description: 'Build an interactive sprite that responds to your keyboard commands, learning how events, loops, and conditionals work together to create game-like controls.',
-  theory: `# Controlling Sprites with Keyboard Input
+  objective: 'Learn what Scratch is and how to make your sprite move around the stage',
+  description: 'Welcome to Scratch! Learn how to use blocks to make your sprite move, turn, and explore the stage.',
+  theory: `# Welcome to Scratch!
 
-In Scratch, sprites are characters that can move, change, and interact! Today you'll learn to control them like a video game character.
+Scratch is a visual programming language where you create programs by snapping together colorful blocks - like building with LEGO bricks!
 
-## Understanding the Stage
+## What is a Sprite?
 
-The Scratch stage is like a coordinate grid:
-- **X-axis**: Left (-240) to Right (+240)
-- **Y-axis**: Bottom (-180) to Top (+180)
-- **Center**: (0, 0)
+A **sprite** is a character or object that you can program. When you start Scratch, you'll see a cat sprite on the stage. You can make it move, change, and do all sorts of things!
 
-## Key Concepts
+## What is the Stage?
 
-### 1. Events - Starting Your Code
-- **when [flag] clicked** - Runs code when you click the green flag
-- This is how you START your program!
+The **stage** is where your sprites live and move around. It's like a digital playground!
 
-### 2. Control Blocks - Making Things Repeat
-- **forever** - Repeats blocks inside continuously (like a game loop)
-- This keeps checking for input over and over
-- **if then** - Only runs code when a condition is true
+- The stage has coordinates (like a map)
+- **X** goes left (-240) to right (+240)
+- **Y** goes bottom (-180) to top (+180)
+- The **center** is at (0, 0)
 
-### 3. Motion Blocks - Moving Your Sprite
-- **move (10) steps** - Moves forward in the direction the sprite is facing
-- **turn right (15) degrees** - Rotates clockwise
-- **turn left (15) degrees** - Rotates counter-clockwise
-- **point in direction (90)** - Points sprite in a specific direction (0=up, 90=right, 180=down, -90=left)
+## Your First Block: "when flag clicked"
 
-### 4. Sensing Blocks - Detecting Input
-- **key [space] pressed?** - Checks if a key is currently being pressed
-- Returns true (pressed) or false (not pressed)
-- Use this inside an **if** block to check for input
+Every Scratch program needs to START somewhere. The **"when flag clicked"** block is how you begin!
 
-## The Pattern for Keyboard Control
+- Click the green flag at the top of the screen
+- Any blocks connected to "when flag clicked" will run
+- This is like pressing "play" on your program
 
-Here's the secret pattern for smooth keyboard control:
+## Making Your Sprite Move
 
-1. **Start with "when flag clicked"** - Begin your program
-2. **Add "forever" loop** - Keep checking for input continuously
-3. **Inside forever, add "if key [arrow] pressed?"** - Check each key
-4. **Inside if, add motion blocks** - Move when key is pressed
+Look for the **Motion** blocks (they're blue). Here are the most important ones:
 
-## Why Use "forever"?
+### move (10) steps
+- Moves your sprite forward in whatever direction it's facing
+- The number tells it how many steps to move
+- Try changing 10 to 20 - it moves twice as far!
 
-Without "forever", your code would only check for keys ONCE. With "forever", it checks 30 times per second, making movement feel smooth and responsive - just like a real game!
+### turn right (15) degrees
+- Rotates your sprite clockwise (to the right)
+- The number tells it how many degrees to turn
+- 90 degrees = quarter turn
+- 360 degrees = full circle
 
-## Direction Tips
+### turn left (15) degrees
+- Rotates your sprite counter-clockwise (to the left)
+- Same idea as turn right, but opposite direction
 
-- **Right Arrow**: Use "point in direction (90)" then "move (10) steps"
-- **Left Arrow**: Use "point in direction (-90)" then "move (10) steps"  
-- **Up Arrow**: Use "point in direction (0)" then "move (10) steps"
-- **Down Arrow**: Use "point in direction (180)" then "move (10) steps"
+### go to x: (0) y: (0)
+- Instantly moves your sprite to a specific position
+- The first number is X (left/right)
+- The second number is Y (up/down)
 
-Or use "change x by" and "change y by" for direct movement!
+### change x by (10)
+- Moves your sprite left or right
+- Positive number = move right
+- Negative number = move left
 
-## Edge Detection
+### change y by (10)
+- Moves your sprite up or down
+- Positive number = move up
+- Negative number = move down
 
-- **touching [edge]?** - Checks if sprite hit the edge
-- Use this to make sprites bounce or stop at boundaries
+## Making Things Repeat: "forever"
 
-**Pro Tip:** You can combine multiple "if" blocks inside "forever" to check all arrow keys at once!`,
+The **"forever"** block (found in the Control section, orange blocks) makes code repeat over and over!
+
+- Put blocks inside "forever"
+- They'll keep running until you stop the program
+- This is how you make continuous movement
+
+**Example:**
+- "when flag clicked" → "forever" → "move (10) steps"
+- This makes your sprite keep moving forward forever!
+
+## Understanding Directions
+
+Your sprite has a direction it's facing:
+- **0 degrees** = pointing up
+- **90 degrees** = pointing right
+- **180 degrees** = pointing down
+- **-90 degrees** = pointing left
+
+You can change direction with:
+- **point in direction (90)** - Points sprite in a specific direction
+- **turn right/left** - Rotates from current direction
+
+## Tips for Beginners
+
+1. **Start simple** - Try just one block first, then add more
+2. **Click the green flag** - This runs your code
+3. **Click the red stop sign** - This stops your code
+4. **Experiment** - Change the numbers and see what happens!
+5. **Blocks snap together** - Drag blocks near each other and they'll connect
+
+## Common First Steps
+
+1. Click "when flag clicked" block (Events section, yellow)
+2. Add "move (10) steps" (Motion section, blue)
+3. Click the green flag
+4. Watch your sprite move!
+
+Try adding "turn right (90) degrees" after moving to make it turn!`,
   steps: [
-    '[NEXT] Click the green flag. What happens? Why does the sprite only move once?',
-    '[TEXT] What block do you need to make the sprite keep checking for keyboard input?',
-    'Add a "forever" loop around your motion blocks',
-    'Click the green flag again. What\'s different now?',
-    '[TEXT] Why does "forever" make the movement feel smoother?',
-    'Add an "if key [right arrow] pressed?" block inside the forever loop',
-    'Put "change x by (10)" inside the if block',
-    '[TEXT] What happens when you hold down the right arrow key?',
-    'Add three more "if" blocks for left arrow (change x by -10), up arrow (change y by 10), and down arrow (change y by -10)',
-    'Test all four arrow keys. Does your sprite move smoothly in all directions?',
-    '[TEXT] What would happen if you removed the "forever" loop? Why?',
-    'Add "if touching [edge]?" then "turn around (180 degrees)" to make your sprite bounce off walls'
+    '[NEXT] Look at the Scratch interface. Do you see the cat sprite on the stage?',
+    '[TEXT] What do you think a "sprite" is?',
+    'Find the "Motion" blocks (blue blocks). What blocks do you see there?',
+    'Drag a "move (10) steps" block to the coding area',
+    '[TEXT] What do you think the number "10" means in "move (10) steps"?',
+    'Click the green flag at the top. What happens?',
+    '[TEXT] Why did the sprite only move once?',
+    'Add a "when flag clicked" block (yellow, Events section) and connect it above "move (10) steps"',
+    'Click the green flag again. What happens now?',
+    '[TEXT] What did "when flag clicked" do?',
+    'Change the number in "move (10) steps" to 50. Click the flag. What\'s different?',
+    'Add a "turn right (90) degrees" block after "move (10) steps"',
+    'Click the flag. What does your sprite do now?',
+    '[TEXT] What happens if you change 90 to 180? What about 360?',
+    'Add a "forever" block (orange, Control section) around your motion blocks',
+    'Click the flag. What happens now?',
+    '[TEXT] What does "forever" do? Why does the sprite keep moving?',
+    'Try "change x by (10)" instead of "move (10) steps". What\'s different?',
+    'Experiment! Try different numbers and different blocks. What can you make your sprite do?'
   ],
-  starterCode: '{}', // Empty Scratch project - students start from scratch!
-  challenge: 'Create a complete game controller! Make your sprite: 1) Move smoothly with arrow keys, 2) Bounce off all four edges, 3) Change color when you press the spacebar, 4) Make a sound when it hits an edge. Bonus: Add a second sprite that follows your first sprite!',
+  starterCode: '{}', // Empty Scratch project - start from scratch!
+  challenge: 'Make your sprite move in a square pattern! Use "move" and "turn" blocks to make it go forward, turn, forward, turn, and repeat. Can you make it go around the stage?',
   isAiGuided: true,
-  tags: ['motion', 'control', 'sensing', 'events', 'interactive', 'game-development'],
-  reflectionQuestion: 'What was the most important concept you learned about how games work? How does the "forever" loop make your sprite feel more responsive? If you were making a real game, what other controls or features would you add?',
+  tags: ['motion', 'basics', 'beginner', 'sprites', 'movement', 'scratch-intro'],
+  reflectionQuestion: 'What was the hardest part about getting started? What do you think "steps" and "degrees" mean now? What would you like to make your sprite do next?',
   editorType: 'scratch'
 };
 
