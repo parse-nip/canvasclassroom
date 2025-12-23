@@ -18,6 +18,8 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [projectLoaded, setProjectLoaded] = useState(false);
+  const projectLoadedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLoadedInitialCodeRef = useRef<string | undefined>(undefined);
 
   // Use refs to store latest callback values to avoid effect re-runs
   const onChangeRef = useRef(onChange);
@@ -55,6 +57,15 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
 
     try {
       let project;
+
+      // Check for Base64 Data URI (new format)
+      if (typeof projectInput === 'string' && projectInput.startsWith('data:')) {
+        console.log('🔍 [DEBUG ScratchEditor] Detected Base64 SB3 data, passing directly...');
+        // Directly pass to iframe without parsing logic
+        iframeRef.current?.contentWindow?.postMessage({ type: 'LOAD_PROJECT', project: projectInput }, '*');
+        return;
+      }
+
       if (typeof projectInput === 'string') {
         console.log('🔍 [DEBUG ScratchEditor] Parsing string input...');
         project = JSON.parse(projectInput);
@@ -92,16 +103,7 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
       });
 
       const messageData = { type: 'LOAD_PROJECT', project };
-      console.log('🔍 [DEBUG ScratchEditor] Sending LOAD_PROJECT message with project:', {
-        type: 'LOAD_PROJECT',
-        projectKeys: Object.keys(project),
-        targetsCount: project.targets?.length,
-        hasStage: project.targets?.some((t: any) => t.isStage),
-        spritesCount: project.targets?.filter((t: any) => !t.isStage).length,
-        iframeReady: !!iframeRef.current,
-        contentWindowReady: !!iframeRef.current?.contentWindow
-      });
-      console.log('🔍 [DEBUG ScratchEditor] Full message data:', JSON.stringify(messageData).substring(0, 500) + '...');
+      console.log('🔍 [DEBUG ScratchEditor] Sending LOAD_PROJECT message with project structure');
 
       if (iframeRef.current?.contentWindow) {
         iframeRef.current.contentWindow.postMessage(messageData, '*');
@@ -112,7 +114,7 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
     } catch (e) {
       console.error('🔍 [DEBUG ScratchEditor] Failed to parse projectInput as JSON:', e);
       // If it's a string that failed to parse as JSON, treat as project ID (legacy behavior)
-      if (typeof projectInput === 'string') {
+      if (typeof projectInput === 'string' && !projectInput.startsWith('data:')) {
         console.log('🔍 [DEBUG ScratchEditor] Treating as project ID, fetching from API...');
         fetch(`https://api.scratch.mit.edu/projects/${projectInput}`)
           .then(res => res.json())
@@ -142,6 +144,69 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
     }
   }, [isLoaded, projectData, loadProject]);
 
+  // Watch for initialCode changes and reload project when it changes
+  useEffect(() => {
+    if (!isLoaded || projectData) return; // Skip if not loaded or if projectData is provided
+
+    // Only reload if initialCode is actually provided and not empty
+    if (initialCode && iframeRef.current) {
+      // Normalize initialCode to string for comparison
+      const codeString = typeof initialCode === 'string' ? initialCode : JSON.stringify(initialCode);
+
+      // Skip reload if this is the same code we already loaded (prevents reload on auto-save updates)
+      if (lastLoadedInitialCodeRef.current === codeString) {
+        return;
+      }
+
+      let isEmpty = false;
+
+      // Handle string vs object
+      if (typeof initialCode === 'string') {
+        isEmpty = initialCode === '{}' || initialCode === '' || initialCode.trim() === '';
+        if (!isEmpty) {
+          // If it starts with data:, it's valid (Base64 SB3)
+          if (initialCode.startsWith('data:')) {
+            isEmpty = false;
+          } else {
+            // Try to parse to validate it's valid JSON
+            try {
+              const parsed = JSON.parse(initialCode);
+              if (!parsed.targets || !Array.isArray(parsed.targets) || parsed.targets.length === 0) {
+                isEmpty = true;
+              }
+            } catch (e) {
+              console.warn('🔍 [DEBUG ScratchEditor] initialCode is not valid JSON:', e);
+              isEmpty = true;
+            }
+          }
+        }
+      } else if (typeof initialCode === 'object') {
+        isEmpty = Object.keys(initialCode).length === 0 ||
+          !initialCode.targets ||
+          !Array.isArray(initialCode.targets) ||
+          initialCode.targets.length === 0;
+      } else {
+        isEmpty = true;
+      }
+
+      if (!isEmpty) {
+        console.log('🔍 [DEBUG ScratchEditor] initialCode changed, reloading project...', {
+          type: typeof initialCode,
+          length: typeof initialCode === 'string' ? initialCode.length : 'object',
+          hasTargets: typeof initialCode === 'string' ?
+            (() => { try { const p = JSON.parse(initialCode); return !!p.targets; } catch { return false; } })() :
+            !!initialCode.targets
+        });
+        // Mark this code as the last loaded one BEFORE loading (to prevent race conditions)
+        lastLoadedInitialCodeRef.current = codeString;
+        setProjectLoaded(false); // Reset loaded state
+        loadProject(initialCode);
+      } else {
+        console.warn('🔍 [DEBUG ScratchEditor] initialCode is empty, skipping reload');
+      }
+    }
+  }, [initialCode, isLoaded, projectData, loadProject]);
+
   // Handle messages from Scratch iframe - stable listener
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -156,6 +221,7 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
       if (event.data?.type === 'SCRATCH_LOADED') {
         setIsLoaded(true);
         // Load project data if provided directly, otherwise use initialCode
+        // Use ref which is kept up to date via useEffect
         if (projectData) {
           console.log('🔍 [DEBUG ScratchEditor] Triggering loadProject from SCRATCH_LOADED (projectData)');
           loadProject(projectData);
@@ -164,7 +230,13 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
           const isEmpty = code === '{}' || code === '' || (typeof code === 'object' && Object.keys(code).length === 0);
 
           if (!isEmpty) {
-            console.log('🔍 [DEBUG ScratchEditor] Triggering loadProject from SCRATCH_LOADED (initialCode)');
+            console.log('🔍 [DEBUG ScratchEditor] Triggering loadProject from SCRATCH_LOADED (initialCode)', {
+              codeLength: typeof code === 'string' ? code.length : 'object',
+              preview: typeof code === 'string' ? code.substring(0, 100) : 'object'
+            });
+            // Track this code as loaded to prevent effect from reloading it
+            const codeString = typeof code === 'string' ? code : JSON.stringify(code);
+            lastLoadedInitialCodeRef.current = codeString;
             loadProject(code);
           } else {
             console.log('🔍 [DEBUG ScratchEditor] No project or empty project to load, using default');
@@ -179,12 +251,46 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
         onExplainErrorRef.current?.(event.data.message);
       } else if (event.data?.type === 'SCRATCH_PROJECT_DATA') {
         const data = event.data.project;
+
+        // Check if project data is empty - ignore if so to prevent overwriting loaded project
+        let isEmpty = false;
+        if (typeof data === 'string') {
+          // Accept Base64 data directly
+          if (data.startsWith('data:')) {
+            isEmpty = false;
+          } else {
+            try {
+              const parsed = JSON.parse(data);
+              isEmpty = !parsed.targets || !Array.isArray(parsed.targets) || parsed.targets.length === 0;
+            } catch {
+              isEmpty = data === '{}' || data === '' || data.trim() === '';
+            }
+          }
+        } else if (typeof data === 'object') {
+          isEmpty = !data.targets || !Array.isArray(data.targets) || data.targets.length === 0;
+        } else {
+          isEmpty = true;
+        }
+
+        if (isEmpty) {
+          console.warn('🔍 [DEBUG ScratchEditor] Ignoring empty SCRATCH_PROJECT_DATA message');
+          return;
+        }
+
         // VM usually returns string, but handle both for robustness
         const serialized = typeof data === 'string' ? data : JSON.stringify(data);
         onChangeRef.current?.(serialized);
       } else if (event.data?.type === 'PROJECT_LOADED') {
         console.log('🔍 [DEBUG ScratchEditor] PROJECT_LOADED received from iframe');
-        setProjectLoaded(true);
+        // Clear any existing timeout
+        if (projectLoadedTimeoutRef.current) {
+          clearTimeout(projectLoadedTimeoutRef.current);
+        }
+        // Add a small delay to ensure project is fully initialized before marking as loaded
+        projectLoadedTimeoutRef.current = setTimeout(() => {
+          setProjectLoaded(true);
+          projectLoadedTimeoutRef.current = null;
+        }, 500);
       } else if (event.data?.type === 'PROJECT_LOAD_ERROR') {
         console.error('🔍 [DEBUG ScratchEditor] PROJECT_LOAD_ERROR:', event.data.error);
         // On load error, use default project
@@ -209,6 +315,15 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
 
     return () => clearInterval(interval);
   }, [projectLoaded]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (projectLoadedTimeoutRef.current) {
+        clearTimeout(projectLoadedTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="w-full h-full relative overflow-hidden">

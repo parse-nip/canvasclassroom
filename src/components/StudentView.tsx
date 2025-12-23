@@ -54,7 +54,13 @@ const SimpleMarkdown: React.FC<{ text: string }> = ({ text }) => {
 
 const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesson, onUpdateProgress, submissions, className, classCode }) => {
     const [activeLesson, setActiveLesson] = useState<LessonPlan | null>(null);
-    const [currentCode, setCurrentCode] = useState<string>('');
+    const [currentCode, setCurrentCodeState] = useState<string>('');
+    // Separate state for initial code that only changes when lesson changes (not on auto-save)
+    const [initialCodeForEditor, setInitialCodeForEditor] = useState<string>('');
+
+    const setCurrentCode = React.useCallback((code: string) => {
+        setCurrentCodeState(code);
+    }, []);
     const [aiAnalysis, setAiAnalysis] = useState<{ hint: string, encouragement: string } | null>(null);
     const [stepFeedback, setStepFeedback] = useState<{ passed: boolean, message: string } | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -196,30 +202,25 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
 
         // Try to parse and check the structure
         try {
-            console.log('🔍 [DEBUG StudentView] About to parse initialCode. First 500 chars:', initialCode.substring(0, 500));
-            const parsed = JSON.parse(initialCode);
-            console.log('🔍 [DEBUG StudentView] JSON.parse result type:', typeof parsed);
-            console.log('🔍 [DEBUG StudentView] JSON.parse result:', parsed);
-            console.log('🔍 [DEBUG StudentView] Parsed project structure:', {
-                hasTargets: !!parsed.targets,
-                targetsCount: parsed.targets?.length,
-                hasSprites: !!parsed.targets?.filter(t => !t.isStage),
-                spritesCount: parsed.targets?.filter(t => !t.isStage).length,
-                hasStage: !!parsed.targets?.find(t => t.isStage)
-            });
+            if (initialCode.startsWith('data:')) {
+                console.log('🔍 [DEBUG StudentView] InitialCode is a Base64 SB3 package (length: ' + initialCode.length + ')');
+            } else {
+                console.log('🔍 [DEBUG StudentView] About to parse initialCode. First 500 chars:', initialCode.substring(0, 500));
+                const parsed = JSON.parse(initialCode);
+                console.log('🔍 [DEBUG StudentView] JSON.parse result type:', typeof parsed);
 
-            // Check if it's double-encoded
-            if (typeof parsed === 'string') {
-                console.log('🔍 [DEBUG StudentView] Parsed result is a string! Trying to parse again...');
-                try {
-                    const doubleParsed = JSON.parse(parsed);
-                    console.log('🔍 [DEBUG StudentView] Double-parsed result:', doubleParsed);
-                    console.log('🔍 [DEBUG StudentView] Double-parsed structure:', {
-                        hasTargets: !!doubleParsed.targets,
-                        targetsCount: doubleParsed.targets?.length
-                    });
-                } catch (e2) {
-                    console.error('🔍 [DEBUG StudentView] Double parse failed:', e2);
+                // Check if it's double-encoded
+                if (typeof parsed === 'string') {
+                    console.log('🔍 [DEBUG StudentView] Parsed result is a string! Trying to parse again...');
+                    try {
+                        const doubleParsed = JSON.parse(parsed);
+                        console.log('🔍 [DEBUG StudentView] Double-parsed structure:', {
+                            hasTargets: !!doubleParsed.targets,
+                            targetsCount: doubleParsed.targets?.length
+                        });
+                    } catch (e2) {
+                        console.error('🔍 [DEBUG StudentView] Double parse failed:', e2);
+                    }
                 }
             }
         } catch (e) {
@@ -228,6 +229,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
         }
 
         setCurrentCode(initialCode);
+        setInitialCodeForEditor(initialCode); // Set stable initial code that only changes on lesson switch
         setActiveLesson(lesson);
         setAiAnalysis(null);
         setStepFeedback(null);
@@ -765,13 +767,15 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                 <div className="flex-1 h-full flex flex-col min-h-0 relative overflow-hidden">
                     {activeLesson.editorType === 'scratch' ? (
                         <ScratchEditor
-                            initialCode={currentCode}
+                            key={`scratch-${activeLesson.id}`}
+                            initialCode={initialCodeForEditor}
                             onChange={setCurrentCode}
                             readOnly={isReadOnly || isReviewing}
                             onExplainError={handleConsoleError}
                         />
                     ) : (
                         <P5Editor
+                            key={`p5-${activeLesson.id}`}
                             initialCode={currentCode}
                             onChange={setCurrentCode}
                             readOnly={isReadOnly || isReviewing}

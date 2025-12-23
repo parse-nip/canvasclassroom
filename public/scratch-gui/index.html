@@ -15,20 +15,20 @@
     // Handle messages from parent for project data
     window.addEventListener('message', function (event) {
       if (event.data?.type === 'GET_PROJECT') {
-        if (window.vm && typeof window.vm.toJSON === 'function') {
-          const projectJson = window.vm.toJSON();
-          // Log properly by parsing if it's a string
-          let parsed;
-          try {
-            parsed = typeof projectJson === 'string' ? JSON.parse(projectJson) : projectJson;
-          } catch (e) {
-            console.warn('Failed to parse project for logging');
-          }
-          console.log('📤 Sending project data, targets:', parsed?.targets?.length);
-          event.source.postMessage({
-            type: 'SCRATCH_PROJECT_DATA',
-            project: projectJson
-          }, event.origin === 'null' ? '*' : event.origin);
+        if (window.vm) {
+          // Use saveProjectSb3 to get the full project including assets (zip blob)
+          window.vm.saveProjectSb3().then(blob => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const base64Data = reader.result;
+              console.log('📤 Sending full SB3 project data (base64), size:', base64Data.length);
+              event.source.postMessage({
+                type: 'SCRATCH_PROJECT_DATA',
+                project: base64Data
+              }, event.origin === 'null' ? '*' : event.origin);
+            };
+            reader.readAsDataURL(blob);
+          });
         } else {
           console.warn('VM not available yet');
           event.source.postMessage({
@@ -41,10 +41,26 @@
 
       if (event.data?.type === 'LOAD_PROJECT') {
         if (window.vm) {
-          console.log('📥 Loading project immediately');
-          window.vm.loadProject(event.data.project)
+          const projectData = event.data.project;
+          console.log('📥 Loading project request received');
+
+          let loadPromise;
+
+          // Check if it's a Base64 Data URI (new format)
+          if (typeof projectData === 'string' && projectData.startsWith('data:')) {
+            console.log('📥 Loading from Base64 SB3 data');
+            loadPromise = fetch(projectData)
+              .then(res => res.arrayBuffer())
+              .then(buffer => window.vm.loadProject(buffer));
+          } else {
+            // Legacy JSON format
+            console.log('📥 Loading from JSON object/string');
+            loadPromise = window.vm.loadProject(projectData);
+          }
+
+          loadPromise
             .then(() => {
-              console.log('📥 Project loaded');
+              console.log('📥 Project loaded successfully');
               window.parent.postMessage({ type: 'PROJECT_LOADED' }, '*');
             })
             .catch(e => {
