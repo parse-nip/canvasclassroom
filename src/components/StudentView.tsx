@@ -948,9 +948,9 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                 ) : (
                                     <Button
                                         id="next-step-btn"
-                                        onClick={handleNextStep}
-                                        disabled={isValidating}
-                                        className={`w-full justify-center py-4 text-sm font-bold ${isValidating ? 'opacity-80' : 'hover:scale-[1.02] active:scale-[0.98] transition-transform'} ${!activeLesson.isAiGuided ? 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600' : ''}`}
+                                        onClick={activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep)) ? () => { } : handleNextStep}
+                                        disabled={isValidating || (activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep)))}
+                                        className={`w-full justify-center py-4 text-sm font-bold ${isValidating || (activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep))) ? 'opacity-80 bg-slate-200 text-slate-500 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98] transition-transform'} ${!activeLesson.isAiGuided ? 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600' : ''}`}
                                     >
                                         {isValidating ? (
                                             <><FaSpinner className="animate-spin mr-2" /> Checking...</>
@@ -963,9 +963,9 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                         ) : isChoiceStep ? (
                                             <>Submit Answer <FaChevronRight className="ml-2" /></>
                                         ) : isCodeStep ? (
-                                            <>Check My Code <FaChevronRight className="ml-2" /></>
+                                            <>Check My Code (Main App Only) <FaChevronRight className="ml-2" /></>
                                         ) : (
-                                            <>Check My Code <FaChevronRight className="ml-2" /></>
+                                            <>Check My Code (Main App Only) <FaChevronRight className="ml-2" /></>
                                         )}
                                     </Button>
                                 )}

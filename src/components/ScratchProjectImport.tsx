@@ -501,9 +501,9 @@ const ScratchProjectImport: React.FC<ScratchProjectImportProps> = ({
                 <Button variant="ghost" onClick={() => { resetState(); }}>
                   Start Over
                 </Button>
-                <Button onClick={handleGenerateCurriculum}>
+                <Button onClick={() => { }} disabled={true} className="bg-slate-200 text-slate-500 cursor-not-allowed">
                   <FaWandMagicSparkles className="mr-2" />
-                  Generate {lessonCount} Lessons
+                  Generate Lessons (Main App Only)
                 </Button>
               </div>
             </div>

@@ -1339,11 +1339,12 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Topic</label>
                         <button
                           id="btn-suggestions"
-                          onClick={handleGetSuggestions}
-                          disabled={isLoadingSuggestions}
-                          className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 border border-indigo-100 dark:border-indigo-800"
+                          onClick={() => { }}
+                          disabled={true}
+                          className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/30 px-2 py-1 rounded cursor-not-allowed flex items-center gap-1 border border-slate-200 dark:border-slate-800"
+                          title="This feature is only available in the main app"
                         >
-                          <FaLightbulb /> {isLoadingSuggestions ? 'Thinking...' : 'Need Ideas?'}
+                          <FaLightbulb /> Need Ideas? (Main App Only)
                         </button>
                       </div>
                       <input
@@ -1411,11 +1412,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
                   <Button
                     id="btn-generate"
-                    onClick={handleGenerate}
-                    disabled={isGenerating || !topic}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 border-0"
+                    onClick={() => { }}
+                    disabled={true}
+                    className="w-full bg-slate-200 dark:bg-slate-800 text-slate-500 cursor-not-allowed border-0"
                   >
-                    {isGenerating ? 'Dreaming up content...' : `Generate ${lessonType}`}
+                    Generate {lessonType} (Main App Only)
                   </Button>
                 </CardContent>
               </Card>
@@ -1543,17 +1544,21 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <div id="create-unit-area" className="flex gap-2 items-center">
                 <Button
                   variant="outline"
-                  onClick={() => setIsCurriculumModalOpen(true)}
-                  className="mr-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
+                  onClick={() => { }}
+                  disabled={true}
+                  className="mr-2 border-slate-200 text-slate-400 cursor-not-allowed dark:border-slate-800 dark:text-slate-500"
+                  title="This feature is only available in the main app"
                 >
-                  <FaWandMagicSparkles className="mr-2" /> AI Curriculum
+                  <FaWandMagicSparkles className="mr-2" /> AI Curriculum (Main App)
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setIsScratchImportOpen(true)}
-                  className="mr-2 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900/30"
+                  onClick={() => { }}
+                  disabled={true}
+                  className="mr-2 border-slate-200 text-slate-400 cursor-not-allowed dark:border-slate-800 dark:text-slate-500"
+                  title="This feature is only available in the main app"
                 >
-                  <FaLink className="mr-2" /> Import from Scratch
+                  <FaLink className="mr-2" /> Import Scratch (Main App)
                 </Button>
                 <input
                   type="text"
