@@ -62,6 +62,7 @@ export interface LessonPlan {
   isTemplate?: boolean; // If true, can be reused across classes
   variant?: string; // For differentiated assignments (e.g., 'easy', 'hard')
   editorType?: 'p5' | 'scratch'; // Which editor to use (defaults to 'p5')
+  referenceProject?: string; // For Scratch projects: complete project JSON for reference
 }
 
 export interface Student {
@@ -102,6 +103,7 @@ export interface Submission {
   textAnswer?: string; // Student's written response
   history?: StepHistory[]; // Track feedback for each step
   timeSpent?: number; // Time in milliseconds spent on lesson
+  updatedAt?: number; // Last update timestamp
 }
 
 // Rubrics System

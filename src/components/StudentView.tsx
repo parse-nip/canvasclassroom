@@ -5,7 +5,7 @@ import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
 import P5Editor from './P5Editor';
 import ScratchEditor from './ScratchEditor';
-import { FaChevronRight, FaCircleCheck, FaLightbulb, FaRobot, FaPaperPlane, FaArrowLeft, FaLock, FaSpinner, FaCheck, FaBookOpen, FaStar, FaPen, FaCommentDots, FaEye, FaClipboardCheck, FaArrowRotateLeft, FaXmark, FaClock } from 'react-icons/fa6';
+import { FaChevronRight, FaCircleCheck, FaLightbulb, FaRobot, FaPaperPlane, FaArrowLeft, FaLock, FaSpinner, FaCheck, FaBookOpen, FaStar, FaPen, FaCommentDots, FaEye, FaClipboardCheck, FaArrowRotateLeft, FaXmark, FaClock, FaCode } from 'react-icons/fa6';
 import { analyzeStudentCode, validateStep, explainError } from '../services/openRouterService';
 
 interface StudentViewProps {
@@ -67,9 +67,167 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
     const [sidebarWidth, setSidebarWidth] = useState(380);
     const [isResizing, setIsResizing] = useState(false);
 
+    // Ref to track latest submissions to avoid stale closures in setTimeout callbacks
+    const submissionsRef = React.useRef(submissions);
+    React.useEffect(() => {
+        submissionsRef.current = submissions;
+    }, [submissions]);
+
+    // Refs for auto-save state
+    const currentCodeRef = React.useRef(currentCode);
+    const activeLessonRef = React.useRef(activeLesson);
+
+    React.useEffect(() => {
+        currentCodeRef.current = currentCode;
+        activeLessonRef.current = activeLesson;
+    }, [currentCode, activeLesson]);
+
+    // Auto-save Scratch projects to server
+    React.useEffect(() => {
+        if (!activeLesson || activeLesson.editorType !== 'scratch' || !currentCode) return;
+
+        const existingSub = submissionsRef.current.find(s => s.lessonId === activeLesson.id);
+        const isReadOnly = existingSub?.status === 'Submitted' || existingSub?.status === 'Graded';
+        if (isReadOnly) return;
+
+        // Skip auto-save if this is the exact same code we just loaded
+        const getInitialCode = (lesson: LessonPlan) => {
+            const sub = submissionsRef.current.find(s => s.lessonId === lesson.id);
+            if (sub) return sub.code;
+
+            // Check continuity
+            const unitLessons = lessons.filter(l => l.unitId === lesson.unitId);
+            const unitSubmissions = submissionsRef.current.filter(s =>
+                unitLessons.some(l => l.id === s.lessonId)
+            ).sort((a, b) => {
+                const timeA = a.updatedAt || a.submittedAt || 0;
+                const timeB = b.updatedAt || b.submittedAt || 0;
+                return timeB - timeA;
+            });
+
+            if (unitSubmissions.length > 0) return unitSubmissions[0].code;
+            return lesson.referenceProject || lesson.starterCode;
+        };
+
+        const initialCode = getInitialCode(activeLesson);
+        if (currentCode === initialCode) return;
+
+        const timer = setTimeout(() => {
+            console.log('💾 [DEBUG StudentView] Auto-saving Scratch project...');
+            const latestSub = submissionsRef.current.find(s => s.lessonId === activeLesson.id);
+            const currentStep = latestSub?.currentStep || 0;
+            onUpdateProgress(activeLesson.id, currentCode, currentStep);
+        }, 5000); // 5 second debounce
+
+        return () => {
+            clearTimeout(timer);
+            // Force save on unmount if there's a pending change
+            if (activeLessonRef.current && activeLessonRef.current.editorType === 'scratch') {
+                const finalCode = currentCodeRef.current;
+                const currentLesson = activeLessonRef.current;
+                const sub = submissionsRef.current.find(s => s.lessonId === currentLesson.id);
+                const readOnly = sub?.status === 'Submitted' || sub?.status === 'Graded';
+
+                if (!readOnly && finalCode && finalCode !== getInitialCode(currentLesson)) {
+                    console.log('💾 [DEBUG StudentView] Forcing final save on unmount...');
+                    const currentStep = sub?.currentStep || 0;
+                    onUpdateProgress(currentLesson.id, finalCode, currentStep);
+                }
+            }
+        };
+    }, [currentCode, activeLesson?.id, onUpdateProgress, lessons]);
+
     const handleStartLesson = (lesson: LessonPlan) => {
-        const existingSub = submissions.find(s => s.lessonId === lesson.id);
-        setCurrentCode(existingSub ? existingSub.code : lesson.starterCode);
+        console.log('🔍 [DEBUG StudentView] Starting lesson:', lesson.title, lesson.id);
+        console.log('🔍 [DEBUG StudentView] Lesson type:', lesson.editorType, 'unitId:', lesson.unitId);
+
+        let existingSub = submissions.find(s => s.lessonId === lesson.id);
+        console.log('🔍 [DEBUG StudentView] Direct submission found:', !!existingSub);
+
+        // For Scratch lessons, if no submission exists, try to find the most recent submission
+        // from other lessons in the same unit for continuity
+        if (!existingSub && lesson.editorType === 'scratch' && lesson.unitId) {
+            const unitLessons = lessons.filter(l => l.unitId === lesson.unitId);
+            console.log('🔍 [DEBUG StudentView] Unit lessons found:', unitLessons.length);
+
+            const unitSubmissions = submissions.filter(s =>
+                unitLessons.some(l => l.id === s.lessonId)
+            ).sort((a, b) => {
+                const timeA = a.updatedAt || a.submittedAt || 0;
+                const timeB = b.updatedAt || b.submittedAt || 0;
+                return timeB - timeA;
+            }); // Most recent first (including drafts)
+
+            console.log('🔍 [DEBUG StudentView] Unit submissions found:', unitSubmissions.length);
+            console.log('🔍 [DEBUG StudentView] Unit submissions details:', unitSubmissions.map(s => ({
+                lessonId: s.lessonId,
+                submittedAt: new Date(s.submittedAt).toLocaleString(),
+                codeLength: s.code.length
+            })));
+
+            if (unitSubmissions.length > 0) {
+                existingSub = unitSubmissions[0]; // Use the most recent submission from the unit
+                console.log('🔍 [DEBUG StudentView] Using continuity submission from lesson:', existingSub.lessonId);
+            }
+        }
+
+        // For Scratch lessons, use referenceProject for continuity if available
+        const initialCode = existingSub
+            ? existingSub.code
+            : (lesson.editorType === 'scratch' && lesson.referenceProject)
+                ? lesson.referenceProject
+                : lesson.starterCode;
+
+        console.log('🔍 [DEBUG StudentView] Final initialCode source:', {
+            hasExistingSub: !!existingSub,
+            usedContinuity: existingSub && submissions.find(s => s.lessonId === lesson.id) !== existingSub,
+            hasReferenceProject: !!(lesson.editorType === 'scratch' && lesson.referenceProject),
+            codeLength: initialCode.length,
+            codePreview: initialCode.substring(0, 200) + '...',
+            isValidJSON: (() => {
+                try {
+                    JSON.parse(initialCode);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            })()
+        });
+
+        // Try to parse and check the structure
+        try {
+            console.log('🔍 [DEBUG StudentView] About to parse initialCode. First 500 chars:', initialCode.substring(0, 500));
+            const parsed = JSON.parse(initialCode);
+            console.log('🔍 [DEBUG StudentView] JSON.parse result type:', typeof parsed);
+            console.log('🔍 [DEBUG StudentView] JSON.parse result:', parsed);
+            console.log('🔍 [DEBUG StudentView] Parsed project structure:', {
+                hasTargets: !!parsed.targets,
+                targetsCount: parsed.targets?.length,
+                hasSprites: !!parsed.targets?.filter(t => !t.isStage),
+                spritesCount: parsed.targets?.filter(t => !t.isStage).length,
+                hasStage: !!parsed.targets?.find(t => t.isStage)
+            });
+
+            // Check if it's double-encoded
+            if (typeof parsed === 'string') {
+                console.log('🔍 [DEBUG StudentView] Parsed result is a string! Trying to parse again...');
+                try {
+                    const doubleParsed = JSON.parse(parsed);
+                    console.log('🔍 [DEBUG StudentView] Double-parsed result:', doubleParsed);
+                    console.log('🔍 [DEBUG StudentView] Double-parsed structure:', {
+                        hasTargets: !!doubleParsed.targets,
+                        targetsCount: doubleParsed.targets?.length
+                    });
+                } catch (e2) {
+                    console.error('🔍 [DEBUG StudentView] Double parse failed:', e2);
+                }
+            }
+        } catch (e) {
+            console.error('🔍 [DEBUG StudentView] Failed to parse initialCode as JSON:', e);
+            console.error('🔍 [DEBUG StudentView] Error details:', e.message);
+        }
+
+        setCurrentCode(initialCode);
         setActiveLesson(lesson);
         setAiAnalysis(null);
         setStepFeedback(null);
@@ -107,6 +265,13 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
 
     const handleSubmit = () => {
         if (activeLesson) {
+            console.log('🔍 [DEBUG StudentView] Submitting lesson:', activeLesson.title, activeLesson.id);
+            console.log('🔍 [DEBUG StudentView] Code being submitted:', {
+                length: currentCode.length,
+                preview: currentCode.substring(0, 200) + '...',
+                isScratch: activeLesson.editorType === 'scratch'
+            });
+
             onSubmitLesson(activeLesson.id, currentCode, reflectionAnswer);
             setActiveLesson(null);
         }
@@ -277,7 +442,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
 
     // Resize handlers - use refs to avoid stale closures
     const isResizingRef = React.useRef(false);
-    
+
     const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -664,15 +829,15 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                 >
                     <div className="w-0.5 h-12 bg-slate-400 dark:bg-slate-500 group-hover:bg-white rounded-full transition-colors"></div>
                 </div>
-                
+
                 {/* Overlay to capture mouse events during resize (prevents iframe from stealing events) */}
                 {isResizing && (
                     <div className="fixed inset-0 z-50 cursor-col-resize" />
                 )}
 
                 {/* Right: Sidebar */}
-                <div 
-                    id="student-sidebar" 
+                <div
+                    id="student-sidebar"
                     className="w-full bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden shadow-xl z-20 flex-shrink-0"
                     style={{ width: window.innerWidth >= 1024 ? sidebarWidth : '100%' }}
                 >
@@ -716,7 +881,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                     )}
                                     {isChoiceStep && (
                                         <div className="mb-2 text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase flex items-center gap-1">
-                                            <FaCheckCircle /> Multiple Choice
+                                            <FaCircleCheck /> Multiple Choice
                                         </div>
                                     )}
 
@@ -749,11 +914,10 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                                         return (
                                                             <label
                                                                 key={idx}
-                                                                className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                                                                    selectedChoice === optionLetter
-                                                                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                                                                        : 'border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-800'
-                                                                }`}
+                                                                className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedChoice === optionLetter
+                                                                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                                                                    : 'border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-800'
+                                                                    }`}
                                                             >
                                                                 <input
                                                                     type="radio"

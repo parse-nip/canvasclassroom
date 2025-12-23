@@ -94,7 +94,8 @@ const dbToLessonPlan = (row: any): LessonPlan => ({
   rubricId: row.rubric_id,
   isTemplate: row.is_template,
   variant: row.variant,
-  editorType: row.editor_type
+  editorType: row.editor_type,
+  referenceProject: row.reference_project
 });
 
 // Helper function to convert database row to Submission
@@ -114,7 +115,8 @@ const dbToSubmission = (row: any): Submission => ({
   currentStep: row.current_step,
   textAnswer: row.text_answer,
   history: row.history || [],
-  timeSpent: row.time_spent
+  timeSpent: row.time_spent,
+  updatedAt: row.updated_at
 });
 
 // Helper function to convert database row to Rubric
@@ -239,7 +241,7 @@ class SupabaseService {
 
   async updateClass(classId: string, updates: Partial<Class>): Promise<Class> {
     const dbUpdates: any = {};
-    
+
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.period !== undefined) dbUpdates.period = updates.period;
     if (updates.academicYear !== undefined) dbUpdates.academic_year = updates.academicYear;
@@ -377,7 +379,7 @@ class SupabaseService {
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
       const studentData: any = {};
-      
+
       headers.forEach((header, idx) => {
         if (header.includes('name')) studentData.name = values[idx];
         if (header.includes('email')) studentData.email = values[idx];
@@ -491,7 +493,7 @@ class SupabaseService {
 
   async updateEnrollmentStatus(enrollmentId: string, status: 'approved' | 'rejected'): Promise<Enrollment> {
     const updates: any = { status };
-    
+
     if (status === 'approved') {
       updates.enrolled_at = Date.now();
     }
@@ -551,9 +553,33 @@ class SupabaseService {
     return dbToUnit(data);
   }
 
+  async deleteUnit(unitId: string): Promise<void> {
+    const { error } = await supabase
+      .from('units')
+      .delete()
+      .eq('id', unitId);
+
+    if (error) {
+      console.error('Error deleting unit:', error);
+      throw error;
+    }
+  }
+
+  async deleteUnits(unitIds: string[]): Promise<void> {
+    const { error } = await supabase
+      .from('units')
+      .delete()
+      .in('id', unitIds);
+
+    if (error) {
+      console.error('Error deleting units:', error);
+      throw error;
+    }
+  }
+
   async updateUnit(unitId: string, updates: Partial<Unit>): Promise<Unit> {
     const dbUpdates: any = {};
-    
+
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if (updates.description !== undefined) dbUpdates.description = updates.description;
     if (updates.order !== undefined) dbUpdates.order = updates.order;
@@ -576,18 +602,6 @@ class SupabaseService {
     return dbToUnit(data);
   }
 
-  async deleteUnit(unitId: string): Promise<void> {
-    const { error } = await supabase
-      .from('units')
-      .delete()
-      .eq('id', unitId);
-
-    if (error) {
-      console.error('Error deleting unit:', error);
-      throw error;
-    }
-  }
-
   // Lessons
   async getLessons(classId: string): Promise<LessonPlan[]> {
     const { data, error } = await supabase
@@ -605,30 +619,34 @@ class SupabaseService {
   }
 
   async createLesson(lessonData: Omit<LessonPlan, 'id'>): Promise<LessonPlan> {
+    const insertData: Record<string, any> = {
+      class_id: lessonData.classId,
+      unit_id: lessonData.unitId,
+      type: lessonData.type,
+      topic: lessonData.topic,
+      title: lessonData.title,
+      difficulty: lessonData.difficulty,
+      objective: lessonData.objective,
+      description: lessonData.description,
+      theory: lessonData.theory,
+      steps: lessonData.steps || [],
+      starter_code: lessonData.starterCode || '',
+      challenge: lessonData.challenge || '',
+      is_ai_guided: lessonData.isAiGuided,
+      tags: lessonData.tags || [],
+      reflection_question: lessonData.reflectionQuestion,
+      rubric_id: lessonData.rubricId,
+      is_template: lessonData.isTemplate,
+      variant: lessonData.variant,
+      editor_type: lessonData.editorType,
+      // NOTE: reference_project column doesn't exist in the DB yet
+      // To add it, run: ALTER TABLE lessons ADD COLUMN reference_project TEXT;
+      created_at: Date.now()
+    };
+
     const { data, error } = await supabase
       .from('lessons')
-      .insert({
-        class_id: lessonData.classId,
-        unit_id: lessonData.unitId,
-        type: lessonData.type,
-        topic: lessonData.topic,
-        title: lessonData.title,
-        difficulty: lessonData.difficulty,
-        objective: lessonData.objective,
-        description: lessonData.description,
-        theory: lessonData.theory,
-        steps: lessonData.steps || [],
-        starter_code: lessonData.starterCode || '',
-        challenge: lessonData.challenge || '',
-        is_ai_guided: lessonData.isAiGuided,
-        tags: lessonData.tags || [],
-        reflection_question: lessonData.reflectionQuestion,
-        rubric_id: lessonData.rubricId,
-        is_template: lessonData.isTemplate,
-        variant: lessonData.variant,
-        editor_type: lessonData.editorType,
-        created_at: Date.now()
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -642,7 +660,7 @@ class SupabaseService {
 
   async updateLesson(lessonId: string, updates: Partial<LessonPlan>): Promise<LessonPlan> {
     const dbUpdates: any = {};
-    
+
     if (updates.classId !== undefined) dbUpdates.class_id = updates.classId;
     if (updates.unitId !== undefined) dbUpdates.unit_id = updates.unitId;
     if (updates.type !== undefined) dbUpdates.type = updates.type;
@@ -726,7 +744,7 @@ class SupabaseService {
       query = query.eq('student_id', studentId);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('updated_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching submissions:', error);
@@ -769,7 +787,7 @@ class SupabaseService {
     const dbUpdates: any = {
       updated_at: Date.now()
     };
-    
+
     if (updates.code !== undefined) dbUpdates.code = updates.code;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.submittedAt !== undefined) dbUpdates.submitted_at = updates.submittedAt;
@@ -876,7 +894,7 @@ class SupabaseService {
 
   async updateAnnouncement(announcementId: string, updates: Partial<Announcement>): Promise<Announcement> {
     const dbUpdates: any = {};
-    
+
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if (updates.content !== undefined) dbUpdates.content = updates.content;
     if (updates.scheduledAt !== undefined) dbUpdates.scheduled_at = updates.scheduledAt;
@@ -954,7 +972,7 @@ class SupabaseService {
 
   async updateHelpRequest(requestId: string, updates: Partial<HelpRequest>): Promise<HelpRequest> {
     const dbUpdates: any = {};
-    
+
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.message !== undefined) dbUpdates.message = updates.message;
     if (updates.status === 'resolved' && !updates.resolvedAt) {

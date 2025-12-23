@@ -33,10 +33,10 @@ type EnrollmentRow = {
 
 // Tutorial Steps
 const TEACHER_TUTORIAL: TutorialStep[] = [
-  { 
-    targetId: 'tab-planner', 
-    title: 'Lesson Planner', 
-    content: 'Create new lessons with AI assistance. Click this tab to explore its features.', 
+  {
+    targetId: 'tab-planner',
+    title: 'Lesson Planner',
+    content: 'Create new lessons with AI assistance. Click this tab to explore its features.',
     position: 'bottom',
     requireClick: true,
     substeps: [
@@ -62,10 +62,10 @@ const TEACHER_TUTORIAL: TutorialStep[] = [
       }
     ]
   },
-  { 
-    targetId: 'tab-curriculum', 
-    title: 'Curriculum Manager', 
-    content: 'Organize your lessons into Units. Click to explore.', 
+  {
+    targetId: 'tab-curriculum',
+    title: 'Curriculum Manager',
+    content: 'Organize your lessons into Units. Click to explore.',
     position: 'bottom',
     requireClick: true,
     substeps: [
@@ -81,10 +81,10 @@ const TEACHER_TUTORIAL: TutorialStep[] = [
       }
     ]
   },
-  { 
-    targetId: 'tab-grading', 
-    title: 'Grading Center', 
-    content: 'Review and grade student submissions. Click to explore.', 
+  {
+    targetId: 'tab-grading',
+    title: 'Grading Center',
+    content: 'Review and grade student submissions. Click to explore.',
     position: 'bottom',
     requireClick: true,
     substeps: [
@@ -100,38 +100,38 @@ const TEACHER_TUTORIAL: TutorialStep[] = [
       }
     ]
   },
-  { 
-    targetId: 'tab-analytics', 
-    title: 'Analytics Dashboard', 
-    content: 'Track class performance with visual charts and identify students who need help.', 
+  {
+    targetId: 'tab-analytics',
+    title: 'Analytics Dashboard',
+    content: 'Track class performance with visual charts and identify students who need help.',
     position: 'bottom',
     requireClick: true
   },
-  { 
-    targetId: 'tab-roster', 
-    title: 'Class Roster', 
-    content: 'Manage your student list and enrollment settings.', 
+  {
+    targetId: 'tab-roster',
+    title: 'Class Roster',
+    content: 'Manage your student list and enrollment settings.',
     position: 'bottom',
     requireClick: true
   },
-  { 
-    targetId: 'tab-communication', 
-    title: 'Communication Hub', 
-    content: 'Post announcements to keep your class informed about assignments and updates.', 
+  {
+    targetId: 'tab-communication',
+    title: 'Communication Hub',
+    content: 'Post announcements to keep your class informed about assignments and updates.',
     position: 'bottom',
     requireClick: true
   },
-  { 
-    targetId: 'tab-help', 
-    title: 'Help Queue', 
-    content: 'Students can raise their hand for help while coding. See who needs assistance in real-time.', 
+  {
+    targetId: 'tab-help',
+    title: 'Help Queue',
+    content: 'Students can raise their hand for help while coding. See who needs assistance in real-time.',
     position: 'bottom',
     requireClick: true
   },
-  { 
-    targetId: 'tab-tools', 
-    title: 'Teacher Tools', 
-    content: 'Export grades, manage templates, and perform bulk operations. You\'re all set!', 
+  {
+    targetId: 'tab-tools',
+    title: 'Teacher Tools',
+    content: 'Export grades, manage templates, and perform bulk operations. You\'re all set!',
     position: 'bottom'
   }
 ];
@@ -240,8 +240,8 @@ const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({
 };
 
 // Empty callbacks for student layout (stable references)
-const noopCallback = () => {};
-const noopTabClick = (_tabId: string) => {};
+const noopCallback = () => { };
+const noopTabClick = (_tabId: string) => { };
 
 // Stable Student View component - defined outside App to prevent remounting on re-renders
 interface StableStudentViewProps {
@@ -328,11 +328,11 @@ StableStudentView.displayName = 'StableStudentView';
 const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Detect which subdomain we're on
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const isDemoSubdomain = hostname === 'demo.canvasclassroom.com' || hostname.startsWith('demo.');
-  
+
   // Detect if we're on the app subdomain
   // In production: app.canvasclassroom.com = app, canvasclassroom.com = homepage
   // In development: use VITE_APP_SUBDOMAIN env var or default to app subdomain
@@ -341,23 +341,23 @@ const App: React.FC = () => {
     if (hostname === 'app.canvasclassroom.com' || hostname.startsWith('app.')) {
       return true;
     }
-    
+
     // Root domain in production
     if (hostname === 'canvasclassroom.com' || hostname === 'www.canvasclassroom.com') {
       return false;
     }
-    
+
     // Development: check environment variable or default to app subdomain
     // This allows testing both homepage and app locally
     const envSubdomain = import.meta.env.VITE_APP_SUBDOMAIN;
     if (envSubdomain !== undefined) {
       return envSubdomain === 'true' || envSubdomain === '1';
     }
-    
+
     // Default: assume app subdomain for localhost (most common use case)
     return true;
   })();
-  
+
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<'teacher' | 'student' | null>(null);
   const [loading, setLoading] = useState(true);
@@ -375,12 +375,161 @@ const App: React.FC = () => {
 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [copiedClassCode, setCopiedClassCode] = useState(false);
+  const [importStatus, setImportStatus] = useState<{
+    active: boolean;
+    progress: number;
+    total: number;
+    message: string;
+  }>({ active: false, progress: 0, total: 0, message: '' });
+
+  const [scratchGenerationStatus, setScratchGenerationStatus] = useState<{
+    active: boolean;
+    complete: boolean;
+    error: string | null;
+    projectTitle?: string;
+    generatedData?: { units: any[], lessons: any[] };
+  }>({ active: false, complete: false, error: null });
+
+  const handleStartScratchGeneration = async (projectAnalysis: any, projectData: any, lessonCount: number) => {
+    if (!currentClassId) return;
+
+    setScratchGenerationStatus({
+      active: true,
+      complete: false,
+      error: null,
+      projectTitle: projectAnalysis.title
+    });
+
+    try {
+      const { generateProjectSummary } = await import('./services/scratchProjectService');
+      const { generateCurriculumFromScratchProject } = await import('./services/openRouterService');
+
+      const summary = generateProjectSummary(projectAnalysis);
+      const curriculum = await generateCurriculumFromScratchProject(summary, projectAnalysis, lessonCount);
+
+      if (!curriculum || !curriculum.lessons || curriculum.lessons.length === 0) {
+        throw new Error('Failed to generate curriculum. Please try again.');
+      }
+
+      // Process units and lessons as ScratchProjectImport used to do
+      const newUnits: any[] = curriculum.units.map((u: any, index: number) => ({
+        classId: currentClassId,
+        title: u.title,
+        description: u.description,
+        order: units.length + u.order,
+        isLocked: true,
+        isSequential: true
+      }));
+
+      const newLessons: any[] = [...curriculum.lessons]
+        .reverse()
+        .map((l: any, idx: number) => ({
+          classId: currentClassId,
+          unitId: l.unitIndex.toString(), // Temporal index for mapping
+          type: 'Lesson' as const,
+          topic: l.topic,
+          title: l.title,
+          difficulty: l.difficulty,
+          objective: l.objective,
+          description: l.description,
+          theory: l.theory,
+          steps: l.steps,
+          starterCode: l.starterCode,
+          challenge: l.challenge,
+          isAiGuided: true,
+          tags: l.tags,
+          editorType: 'scratch' as const,
+          referenceProject: JSON.stringify(projectData.project)
+        }));
+
+      setScratchGenerationStatus({
+        active: false,
+        complete: true,
+        error: null,
+        projectTitle: projectAnalysis.title,
+        generatedData: { units: newUnits, lessons: newLessons }
+      });
+    } catch (err) {
+      console.error('Background generation failed:', err);
+      setScratchGenerationStatus({
+        active: false,
+        complete: false,
+        error: err instanceof Error ? err.message : 'Unknown error',
+        projectTitle: projectAnalysis.title
+      });
+    }
+  };
+
+  const handleImportCurriculum = async (newUnits: Omit<Unit, 'id'>[], newLessons: LessonPlan[]) => {
+    if (!currentClassId) return;
+
+    setImportStatus({
+      active: true,
+      progress: 0,
+      total: newUnits.length + newLessons.length,
+      message: 'Initializing curriculum import...'
+    });
+
+    try {
+      // 1. Create units
+      const newlyCreatedUnits: Unit[] = [];
+      for (let i = 0; i < newUnits.length; i++) {
+        setImportStatus(prev => ({
+          ...prev,
+          progress: i,
+          message: `Creating unit: ${newUnits[i].title}...`
+        }));
+
+        const created = await handleAddUnit(newUnits[i] as any);
+        if (created) newlyCreatedUnits.push(created);
+      }
+
+      // 2. Create lessons
+      const correctedLessons = newLessons.map(lesson => {
+        const unitIndex = parseInt(lesson.unitId || '0');
+        const correctUnit = newlyCreatedUnits[unitIndex];
+        if (!correctUnit) return null;
+        return { ...lesson, unitId: correctUnit.id };
+      }).filter((l): l is LessonPlan & { unitId: string } => l !== null);
+
+      for (let i = 0; i < correctedLessons.length; i++) {
+        setImportStatus(prev => ({
+          ...prev,
+          progress: newUnits.length + i,
+          message: `Adding lesson: ${correctedLessons[i].title}...`
+        }));
+
+        await handleAddLesson(correctedLessons[i]);
+      }
+
+      setImportStatus({
+        active: false,
+        progress: 100,
+        total: 100,
+        message: 'Import completed successfully!'
+      });
+
+      // Auto-clear success message after 5 seconds
+      setTimeout(() => {
+        setImportStatus(prev => prev.active ? prev : { active: false, progress: 0, total: 0, message: '' });
+      }, 5000);
+
+    } catch (error) {
+      console.error('Curriculum import failed:', error);
+      setImportStatus({
+        active: false,
+        progress: 0,
+        total: 0,
+        message: 'Import failed. See console for details.'
+      });
+    }
+  };
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Tutorial State
   const [tutorialActive, setTutorialActive] = useState(false);
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
-  
+
   // Tab state (lifted for tutorial control)
   const [activeTab, setActiveTab] = useState<'planner' | 'curriculum' | 'grading' | 'analytics' | 'roster' | 'communication' | 'tools' | 'help'>('planner');
 
@@ -421,7 +570,7 @@ const App: React.FC = () => {
         const role = session.user.user_metadata.role;
         const newRole = role === 'teacher' || role === 'student' ? role : null;
         setUserRole(newRole);
-        
+
         // Navigate to appropriate route after authentication
         if (newRole && location.pathname === '/auth') {
           if (newRole === 'teacher') {
@@ -631,7 +780,7 @@ const App: React.FC = () => {
   const handleAddStudent = async (studentData: Omit<Student, 'id' | 'avatar'>) => {
     if (!currentClassId) return;
     const newStudent = await supabaseService.createStudent(studentData);
-    
+
     try {
       // Create enrollment for the student
       await supabaseService.createEnrollment({
@@ -674,6 +823,7 @@ const App: React.FC = () => {
     const lessonWithClass = { ...lesson, classId: currentClassId };
     const createdLesson = await supabaseService.createLesson(lessonWithClass);
     setLessons(prev => [createdLesson, ...prev]);
+    return createdLesson;
   };
 
   const handleUpdateLesson = async (updatedLesson: LessonPlan) => {
@@ -687,15 +837,69 @@ const App: React.FC = () => {
   };
 
   const handleAddUnit = async (unit: Unit) => {
-    if (!currentClassId) return;
+    console.log('🔍 [DEBUG App] handleAddUnit called:', {
+      unitTitle: unit.title,
+      unitClassId: unit.classId,
+      currentClassId,
+      hasId: !!unit.id
+    });
+
+    if (!currentClassId) {
+      console.log('🔍 [DEBUG App] No currentClassId, returning early');
+      return;
+    }
+
     const unitWithClass = { ...unit, classId: currentClassId };
-    const createdUnit = await supabaseService.createUnit(unitWithClass);
-    setUnits(prev => [...prev, createdUnit]);
+    console.log('🔍 [DEBUG App] unitWithClass:', unitWithClass);
+    console.log('🔍 [DEBUG App] Units before DB call:', units.length);
+
+    try {
+      const createdUnit = await supabaseService.createUnit(unitWithClass);
+      console.log('🔍 [DEBUG App] Unit created in DB:', {
+        id: createdUnit.id,
+        title: createdUnit.title,
+        classId: createdUnit.classId
+      });
+      console.log('🔍 [DEBUG App] About to update state, current units:', units.length);
+
+      setUnits(prev => {
+        const newUnits = [...prev, createdUnit];
+        console.log('🔍 [DEBUG App] State update function - new count:', newUnits.length);
+        console.log('🔍 [DEBUG App] State update function - added unit:', createdUnit.id);
+        return newUnits;
+      });
+
+      console.log('🔍 [DEBUG App] setUnits called, units prop (may be stale):', units.length);
+      return createdUnit;
+    } catch (error) {
+      console.error('🔍 [DEBUG App] Error creating unit:', error);
+      throw error;
+    }
   };
 
   const handleUpdateUnit = async (updatedUnit: Unit) => {
     const updated = await supabaseService.updateUnit(updatedUnit.id, updatedUnit);
     setUnits(prev => prev.map(u => u.id === updated.id ? updated : u));
+  };
+
+  const handleDeleteUnit = async (unitId: string) => {
+    try {
+      await supabaseService.deleteUnit(unitId);
+      setUnits(prev => prev.filter(u => u.id !== unitId));
+    } catch (error) {
+      console.error('Failed to delete unit:', error);
+      throw error; // Re-throw so the UI can handle it
+    }
+  };
+
+  const handleDeleteUnits = async (unitIds: string[]) => {
+    try {
+      await supabaseService.deleteUnits(unitIds);
+      setUnits(prev => prev.filter(u => !unitIds.includes(u.id)));
+    } catch (error) {
+      console.error('Failed to delete units:', error);
+      throw error; // Re-throw so the UI can handle it
+    }
   };
 
   const handleReorderUnits = async (draggedUnitId: string, targetUnitId: string) => {
@@ -711,9 +915,9 @@ const App: React.FC = () => {
     // Update order field and persist to Supabase
     const reordered = newUnits.map((u, idx) => ({ ...u, order: idx }));
     setUnits(reordered);
-    
+
     // Persist order changes to Supabase
-    await Promise.all(reordered.map((u, idx) => 
+    await Promise.all(reordered.map((u, idx) =>
       supabaseService.updateUnit(u.id, { order: idx })
     ));
   };
@@ -723,10 +927,10 @@ const App: React.FC = () => {
     if (lessonIndex === -1) return;
 
     const lesson = { ...lessons[lessonIndex], unitId: targetUnitId || undefined };
-    
+
     // Update in Supabase
     await supabaseService.updateLesson(lessonId, { unitId: targetUnitId || undefined });
-    
+
     // Update local state
     setLessons(prev => {
       const remaining = prev.filter(l => l.id !== lessonId);
@@ -752,7 +956,7 @@ const App: React.FC = () => {
   const handleToggleLock = async (unitId: string) => {
     const unit = units.find(u => u.id === unitId);
     if (!unit) return;
-    
+
     const updated = await supabaseService.updateUnit(unitId, { isLocked: !unit.isLocked });
     setUnits(prev => prev.map(u => u.id === unitId ? updated : u));
   };
@@ -760,7 +964,7 @@ const App: React.FC = () => {
   const handleToggleSequential = async (unitId: string) => {
     const unit = units.find(u => u.id === unitId);
     if (!unit) return;
-    
+
     const updated = await supabaseService.updateUnit(unitId, { isSequential: !unit.isSequential });
     setUnits(prev => prev.map(u => u.id === unitId ? updated : u));
   };
@@ -819,12 +1023,15 @@ const App: React.FC = () => {
           code,
           currentStep: step,
           history: updatedHistory
+        }).then(updatedSubmission => {
+          setSubmissions(p => p.map(s => s.id === existing.id ? updatedSubmission : s));
         }).catch(err => console.error('Error updating progress:', err));
-        
-        return prev.map(s => s.id === existing.id ? { ...s, code, currentStep: step, history: updatedHistory } : s);
+
+        return prev.map(s => s.id === existing.id ? { ...s, code, currentStep: step, history: updatedHistory, updatedAt: Date.now() } : s);
       } else {
         // Create new draft submission - trigger async create
         const tempId = `temp-${Date.now()}`;
+        const now = Date.now();
         supabaseService.createSubmission({
           lessonId,
           studentId: studentProfile.id,
@@ -836,7 +1043,7 @@ const App: React.FC = () => {
         }).then(newSubmission => {
           setSubmissions(p => p.map(s => s.id === tempId ? newSubmission : s));
         }).catch(err => console.error('Error creating progress:', err));
-        
+
         return [...prev, {
           id: tempId,
           lessonId,
@@ -845,7 +1052,8 @@ const App: React.FC = () => {
           code,
           status: 'Draft' as const,
           currentStep: step,
-          history: updatedHistory
+          history: updatedHistory,
+          updatedAt: now
         }];
       }
     });
@@ -895,7 +1103,7 @@ const App: React.FC = () => {
   // Teacher Dashboard Component
   const TeacherDashboardRoute: React.FC = () => {
     if (!session || userRole !== 'teacher') return null;
-    
+
     return (
       <AuthenticatedLayout
         session={session}
@@ -919,6 +1127,7 @@ const App: React.FC = () => {
               onDeleteLesson={handleDeleteLesson}
               onAddUnit={handleAddUnit}
               onUpdateUnit={handleUpdateUnit}
+              onDeleteUnit={handleDeleteUnit}
               onMoveLesson={handleMoveLesson}
               onReorderUnits={handleReorderUnits}
               onReorderLesson={handleReorderLesson}
@@ -946,6 +1155,11 @@ const App: React.FC = () => {
               forceAdvancedMode={tutorialActive ? true : undefined}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              importStatus={importStatus}
+              onImportCurriculum={handleImportCurriculum}
+              scratchGenerationStatus={scratchGenerationStatus}
+              onStartScratchGeneration={handleStartScratchGeneration}
+              onClearScratchStatus={() => setScratchGenerationStatus({ active: false, complete: false, error: null })}
             />
           ) : (
             <div className="max-w-md mx-auto py-12">
@@ -976,7 +1190,7 @@ const App: React.FC = () => {
   // Teacher Class Route Component
   const TeacherClassRoute: React.FC = () => {
     const { classId } = useParams<{ classId: string }>();
-    
+
     useEffect(() => {
       if (classId && classId !== currentClassId) {
         handleSelectClass(classId);
@@ -1008,6 +1222,7 @@ const App: React.FC = () => {
             onDeleteLesson={handleDeleteLesson}
             onAddUnit={handleAddUnit}
             onUpdateUnit={handleUpdateUnit}
+            onDeleteUnit={handleDeleteUnit}
             onMoveLesson={handleMoveLesson}
             onReorderUnits={handleReorderUnits}
             onReorderLesson={handleReorderLesson}
@@ -1035,6 +1250,11 @@ const App: React.FC = () => {
             forceAdvancedMode={tutorialActive ? true : undefined}
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            importStatus={importStatus}
+            onImportCurriculum={handleImportCurriculum}
+            scratchGenerationStatus={scratchGenerationStatus}
+            onStartScratchGeneration={handleStartScratchGeneration}
+            onClearScratchStatus={() => setScratchGenerationStatus({ active: false, complete: false, error: null })}
           />
         </div>
       </AuthenticatedLayout>
@@ -1048,12 +1268,12 @@ const App: React.FC = () => {
   }, [submissions, studentProfile]);
 
   // Memoize current class info
-  const currentClassName = React.useMemo(() => 
+  const currentClassName = React.useMemo(() =>
     classes.find(c => c.id === currentClassId)?.name,
     [classes, currentClassId]
   );
 
-  const currentClassCode = React.useMemo(() => 
+  const currentClassCode = React.useMemo(() =>
     classes.find(c => c.id === currentClassId)?.classCode,
     [classes, currentClassId]
   );
@@ -1066,14 +1286,14 @@ const App: React.FC = () => {
   if (isDemoSubdomain) {
     return (
       <Routes>
-        <Route 
-          path="*" 
+        <Route
+          path="*"
           element={
-            <DemoPage 
+            <DemoPage
               isDarkMode={isDarkMode}
               onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             />
-          } 
+          }
         />
       </Routes>
     );
@@ -1104,16 +1324,16 @@ const App: React.FC = () => {
   if (!isAppSubdomain) {
     return (
       <Routes>
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
-            <HomePage 
+            <HomePage
               onLogin={() => {
                 // Redirect to app subdomain for login
                 if (typeof window !== 'undefined') {
                   window.location.href = `https://app.canvasclassroom.com/auth`;
                 }
-              }} 
+              }}
               onLaunch={() => {
                 // Redirect to app subdomain
                 if (typeof window !== 'undefined') {
@@ -1129,7 +1349,7 @@ const App: React.FC = () => {
               isDarkMode={isDarkMode}
               onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             />
-          } 
+          }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -1139,35 +1359,35 @@ const App: React.FC = () => {
   // On app subdomain, show the full app
   return (
     <Routes>
-      <Route 
-        path="/" 
+      <Route
+        path="/"
         element={
           session ? (
-            <Navigate 
-              to={userRole === 'teacher' ? '/teacher' : '/student'} 
-              replace 
+            <Navigate
+              to={userRole === 'teacher' ? '/teacher' : '/student'}
+              replace
             />
           ) : (
             <Navigate to="/auth" replace />
           )
-        } 
+        }
       />
-      <Route 
-        path="/auth" 
+      <Route
+        path="/auth"
         element={
           session ? (
-            <Navigate 
-              to={userRole === 'teacher' ? '/teacher' : '/student'} 
-              replace 
+            <Navigate
+              to={userRole === 'teacher' ? '/teacher' : '/student'}
+              replace
             />
           ) : (
-            <AuthPage 
+            <AuthPage
               onAuthSuccess={() => {
                 // Navigation will happen automatically via auth state change listener
-              }} 
+              }}
             />
           )
-        } 
+        }
       />
       <Route
         path="/teacher"
@@ -1249,10 +1469,10 @@ const App: React.FC = () => {
                 setIsDarkMode={setIsDarkMode}
                 onSignOut={handleSignOut}
                 tutorialActive={false}
-                startTutorial={() => {}}
+                startTutorial={() => { }}
                 tutorialStepIndex={0}
-                handleTutorialNext={() => {}}
-                handleTutorialTabClick={() => {}}
+                handleTutorialNext={() => { }}
+                handleTutorialTabClick={() => { }}
                 activeTab="planner"
               >
                 <div className="container mx-auto px-4 py-8">

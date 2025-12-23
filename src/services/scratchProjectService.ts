@@ -6,7 +6,7 @@
 import { ScratchProjectAnalysis, ScratchSprite, ScratchBlock } from '../types';
 
 // Scratch block categories mapping
-const BLOCK_CATEGORIES: Record<string, string> = {
+export const BLOCK_CATEGORIES: Record<string, string> = {
   // Motion
   'motion_movesteps': 'motion',
   'motion_turnright': 'motion',
@@ -311,7 +311,7 @@ function extractBlocks(target: any): ScratchBlock[] {
 /**
  * Determine project complexity based on blocks used
  */
-function determineComplexity(
+export function determineComplexity(
   totalBlocks: number,
   uniqueCategories: string[],
   hasClones: boolean,
@@ -343,7 +343,7 @@ function determineComplexity(
 /**
  * Detect the type of project based on blocks used
  */
-function detectProjectType(blocks: ScratchBlock[]): string {
+export function detectProjectType(blocks: ScratchBlock[]): string {
   const opcodes = blocks.map(b => b.opcode);
   
   // Game indicators
@@ -386,7 +386,7 @@ function detectProjectType(blocks: ScratchBlock[]): string {
 /**
  * Extract programming concepts from blocks used
  */
-function extractConcepts(blocks: ScratchBlock[]): string[] {
+export function extractConcepts(blocks: ScratchBlock[]): string[] {
   const concepts: string[] = [];
   const opcodes = new Set(blocks.map(b => b.opcode));
   

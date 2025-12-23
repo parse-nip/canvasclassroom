@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS lessons (
   is_template BOOLEAN DEFAULT false,
   variant TEXT,
   editor_type TEXT CHECK (editor_type IN ('p5', 'scratch')),
+  reference_project TEXT,
   created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
 );
 

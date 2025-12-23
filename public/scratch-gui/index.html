@@ -1,54 +1,95 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="google" value="notranslate">
-    <link rel="shortcut icon" href="static/favicon.ico">
-    <title>Scratch 3.0 GUI</title>
-    <script defer src="gui.js"></script>
-    <script>
-      // Handle messages from parent for project data
-      window.addEventListener('message', function(event) {
-        if (event.data?.type === 'GET_PROJECT') {
-          if (window.vm && typeof window.vm.toJSON === 'function') {
-            const projectData = window.vm.toJSON();
-            console.log('📤 Sending project data, targets:', projectData?.targets?.length);
-            event.source.postMessage({
-              type: 'SCRATCH_PROJECT_DATA',
-              project: projectData
-            }, event.origin === 'null' ? '*' : event.origin);
-          } else {
-            console.warn('VM not available yet');
-            event.source.postMessage({
-              type: 'SCRATCH_PROJECT_DATA',
-              project: null,
-              error: 'VM not ready'
-            }, event.origin === 'null' ? '*' : event.origin);
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google" value="notranslate">
+  <link rel="shortcut icon" href="static/favicon.ico">
+  <title>Scratch 3.0 GUI</title>
+  <script defer src="gui.js"></script>
+  <script>
+    // Project queue for when VM is not yet ready
+    let pendingProject = null;
+
+    // Handle messages from parent for project data
+    window.addEventListener('message', function (event) {
+      if (event.data?.type === 'GET_PROJECT') {
+        if (window.vm && typeof window.vm.toJSON === 'function') {
+          const projectJson = window.vm.toJSON();
+          // Log properly by parsing if it's a string
+          let parsed;
+          try {
+            parsed = typeof projectJson === 'string' ? JSON.parse(projectJson) : projectJson;
+          } catch (e) {
+            console.warn('Failed to parse project for logging');
           }
+          console.log('📤 Sending project data, targets:', parsed?.targets?.length);
+          event.source.postMessage({
+            type: 'SCRATCH_PROJECT_DATA',
+            project: projectJson
+          }, event.origin === 'null' ? '*' : event.origin);
+        } else {
+          console.warn('VM not available yet');
+          event.source.postMessage({
+            type: 'SCRATCH_PROJECT_DATA',
+            project: null,
+            error: 'VM not ready'
+          }, event.origin === 'null' ? '*' : event.origin);
         }
-        
-        if (event.data?.type === 'LOAD_PROJECT' && window.vm) {
-          window.vm.loadProject(event.data.project)
-            .then(() => console.log('📥 Project loaded'))
-            .catch(e => console.error('Load error:', e));
-        }
-      });
-      
-      // Log when VM becomes available
-      let vmCheckCount = 0;
-      const checkVM = setInterval(() => {
-        vmCheckCount++;
+      }
+
+      if (event.data?.type === 'LOAD_PROJECT') {
         if (window.vm) {
-          console.log('✅ VM available on window.vm after', vmCheckCount, 'checks');
-          clearInterval(checkVM);
-        } else if (vmCheckCount > 30) {
-          console.warn('VM not found after 30 checks');
-          clearInterval(checkVM);
+          console.log('📥 Loading project immediately');
+          window.vm.loadProject(event.data.project)
+            .then(() => {
+              console.log('📥 Project loaded');
+              window.parent.postMessage({ type: 'PROJECT_LOADED' }, '*');
+            })
+            .catch(e => {
+              console.error('Load error:', e);
+              window.parent.postMessage({ type: 'PROJECT_LOAD_ERROR', error: e.message }, '*');
+            });
+        } else {
+          console.log('📥 VM not ready, queuing project');
+          pendingProject = event.data.project;
         }
-      }, 500);
-    </script>
-  </head>
-  <body>
-  </body>
+      }
+    });
+
+    // Log when VM becomes available
+    let vmCheckCount = 0;
+    const checkVM = setInterval(() => {
+      vmCheckCount++;
+      if (window.vm) {
+        console.log('✅ VM available on window.vm after', vmCheckCount, 'checks');
+        clearInterval(checkVM);
+
+        // Load pending project if one was queued
+        if (pendingProject) {
+          console.log('📥 Loading queued project');
+          window.vm.loadProject(pendingProject)
+            .then(() => {
+              console.log('📥 Queued project loaded');
+              window.parent.postMessage({ type: 'PROJECT_LOADED' }, '*');
+              pendingProject = null;
+            })
+            .catch(e => {
+              console.error('Queued load error:', e);
+              window.parent.postMessage({ type: 'PROJECT_LOAD_ERROR', error: e.message }, '*');
+              pendingProject = null;
+            });
+        }
+      } else if (vmCheckCount > 60) { // Increased timeout to 30s
+        console.warn('VM not found after 60 checks');
+        clearInterval(checkVM);
+      }
+    }, 500);
+  </script>
+</head>
+
+<body>
+</body>
+
 </html>

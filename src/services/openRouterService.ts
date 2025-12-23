@@ -551,16 +551,16 @@ export const generateCurriculumFromScratchProject = async (
         { "title": "string", "description": "string", "order": number }
       ],
       "lessons": [
-        { 
-          "unitIndex": number, 
-          "title": "string", 
-          "topic": "string", 
-          "objective": "string", 
+        {
+          "unitIndex": number,
+          "title": "string",
+          "topic": "string",
+          "objective": "string",
           "difficulty": "Beginner" | "Intermediate" | "Advanced",
           "description": "string (1 sentence)",
           "theory": "string (markdown formatted, educational explanation)",
           "steps": ["string array of 4-6 guided steps"],
-          "starterCode": "{}",
+          "starterCode": "string - ALWAYS use '{}' (empty JSON object) for all lessons",
           "challenge": "string (extension activity)",
           "tags": ["string array of 2-4 relevant tags"]
         }
@@ -576,45 +576,63 @@ export const generateCurriculumFromScratchProject = async (
       : '2 units with 2-3 lessons each (total 4-6 lessons)';
 
   const systemPrompt = `You are an expert Scratch curriculum designer for 10-12 year olds.
-    You are creating a curriculum that teaches students how to BUILD a specific Scratch project from scratch.
-    The curriculum should be pedagogically sound, building concepts progressively.
-    Each lesson teaches ONE concept needed to recreate the final project.
+    You are creating a PROGRESSIVE curriculum where students BUILD a complete Scratch project incrementally.
+    Each lesson builds upon the previous lesson's completed code.
+    The curriculum should be pedagogically sound, introducing concepts progressively.
+    Each lesson teaches ONE new concept while preserving relevant work from previous lessons.
+
+    CRITICAL: unitIndex values MUST be valid indices for the units array.
+    If you create N units, valid unitIndex values are 0 through N-1.
+    Never use unitIndex values >= number of units created.
+
     ${schemaDescription}`;
 
-  const userPrompt = `Create a Scratch curriculum that teaches students to build this project:
+  const userPrompt = `Create a PROGRESSIVE Scratch curriculum that teaches students to build this project incrementally:
 
 ${projectSummary}
 
 TARGET: ${lessonCount} lessons (${complexityGuidance})
 
-CRITICAL CURRICULUM DESIGN REQUIREMENTS:
+CRITICAL CONSTRAINTS:
+- unitIndex values MUST correspond to valid unit indices (0, 1, 2, etc.)
+- If you create 3 units, valid unitIndex values are only: 0, 1, 2
+- NEVER use unitIndex values that exceed the number of units you create
 
-1. **Reverse Engineer the Project**
-   - Analyze what concepts are needed to build this project
-   - Order them from simplest to most complex
-   - Each lesson should add ONE new concept
-   - By the final lesson, students can recreate the entire project
+CURRICULUM DESIGN REQUIREMENTS:
 
-2. **Unit Structure**
+1. **Progressive Building Approach**
+   - Students start with an empty project and BUILD incrementally
+   - Each lesson adds ONE new concept/feature while keeping relevant previous work
+   - Lesson 1 starts with "{}" (empty project)
+   - Lessons 2+ start with the completed code from the previous lesson
+   - You decide what to preserve/modify/reset for each lesson's learning goals
+
+2. **Smart Code Progression**
+   - Preserve working code that supports new concepts
+   - Modify or remove code that would interfere with learning the new concept
+   - Reset/restart elements when introducing conflicting mechanics
+   - Ensure each lesson focuses on ONE new concept without overwhelming complexity
+
+3. **Unit Structure**
    - Unit 1: Foundation (basic movement, events, looks)
    - Unit 2: Core Mechanics (the main interactions/game logic)
    - Unit 3: Polish & Extensions (scoring, effects, finishing touches)
 
-3. **Lesson Format for Scratch**
-   - Theory: Explain the concept with **bold headings**, bullet points
+4. **Lesson Format for Scratch**
+   - Theory: Explain the NEW concept with **bold headings**, bullet points
    - Steps: Use [NEXT] for observations, [TEXT] for questions
    - Steps: Reference blocks by exact name (e.g., "add a 'when flag clicked' block")
-   - Starter Code: Always "{}" (empty Scratch project)
+   - Starter Code: For Lesson 1 = "{}", for Lessons 2+ = completed code from previous lesson
    - Challenge: Creative extension of the lesson concept
    - Tags: Include concept keywords
 
-4. **Progression Example** (for a "Catch the Apple" game):
-   - Lesson 1: "Moving the Basket" - keyboard controls
-   - Lesson 2: "The Falling Apple" - gravity/movement
-   - Lesson 3: "Catching Apples" - collision detection
-   - Lesson 4: "Keeping Score" - variables
-   - Lesson 5: "Game Over" - conditionals
-   - Lesson 6: "Adding Polish" - sounds, effects
+5. **Progression Example** (for a "Catch the Apple" game):
+   - Lesson 1: "Moving the Basket" - keyboard controls (starts empty)
+   - Lesson 2: "The Falling Apple" - adds apple with gravity (keeps basket controls)
+   - Lesson 3: "Catching Apples" - collision detection (keeps basket + falling apple)
+   - Lesson 4: "Keeping Score" - variables (keeps all previous mechanics)
+   - Lesson 5: "Game Over" - conditionals (keeps all previous mechanics)
+   - Lesson 6: "Adding Polish" - sounds, effects (final complete game)
 
 5. **Key Concepts Detected in This Project:**
    ${projectAnalysis.concepts.join(', ')}
@@ -625,11 +643,13 @@ CRITICAL CURRICULUM DESIGN REQUIREMENTS:
 7. **Sprites:**
    ${projectAnalysis.sprites.filter(s => !s.isStage).map(s => s.name).join(', ')}
 
-IMPORTANT:
+CRITICAL REQUIREMENTS:
+- Each lesson MUST have starterCode: "{}" (empty JSON object string - do not generate complex JSON)
+- DO NOT generate complex JSON in starterCode field
 - DO NOT include robotics/hardware concepts unless the project uses them
-- Each lesson MUST have starterCode: "{}"
 - Build toward the FINAL PROJECT - the last lesson should help complete it
 - Make it FUN and ENGAGING for kids!
+- Be SMART about what code to preserve vs. reset for each lesson's learning goals
 
 Create a curriculum where by the end, students can recreate "${projectAnalysis.title}":`;
 
