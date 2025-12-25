@@ -24,6 +24,7 @@ interface ScratchProjectImportProps {
   existingUnitsCount: number;
   onStartBackgroundGeneration?: (analysis: any, data: any, lessonCount: number) => void;
   backgroundGenerationActive?: boolean;
+  isDemo?: boolean;
 }
 
 type ImportStep = 'input' | 'analyzing' | 'preview' | 'generating' | 'complete' | 'error';
@@ -35,7 +36,8 @@ const ScratchProjectImport: React.FC<ScratchProjectImportProps> = ({
   classId,
   existingUnitsCount,
   onStartBackgroundGeneration,
-  backgroundGenerationActive
+  backgroundGenerationActive,
+  isDemo = false
 }) => {
   const [projectData, setProjectData] = useState<SB3ProjectData | null>(null);
   const [step, setStep] = useState<ImportStep>('input');
@@ -501,9 +503,13 @@ const ScratchProjectImport: React.FC<ScratchProjectImportProps> = ({
                 <Button variant="ghost" onClick={() => { resetState(); }}>
                   Start Over
                 </Button>
-                <Button onClick={() => { }} disabled={true} className="bg-slate-200 text-slate-500 cursor-not-allowed">
+                <Button
+                  onClick={handleGenerateCurriculum}
+                  disabled={isDemo || step === 'generating'}
+                  className={isDemo ? "bg-slate-200 text-slate-500 cursor-not-allowed" : ""}
+                >
                   <FaWandMagicSparkles className="mr-2" />
-                  Generate Lessons (Main App Only)
+                  {isDemo ? "Generate Lessons (Main App Only)" : "Generate Lessons"}
                 </Button>
               </div>
             </div>

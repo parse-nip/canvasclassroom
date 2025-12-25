@@ -16,6 +16,7 @@ interface StudentViewProps {
     submissions: Submission[];
     className?: string;
     classCode?: string;
+    isDemo?: boolean;
 }
 
 // Simple markdown component for basic formatting without heavy libraries
@@ -52,7 +53,7 @@ const SimpleMarkdown: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
-const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesson, onUpdateProgress, submissions, className, classCode }) => {
+const StudentView: React.FC<StudentViewProps> = ({ isDemo = false, lessons, units, onSubmitLesson, onUpdateProgress, submissions, className, classCode }) => {
     const [activeLesson, setActiveLesson] = useState<LessonPlan | null>(null);
     const [currentCode, setCurrentCodeState] = useState<string>('');
     // Separate state for initial code that only changes when lesson changes (not on auto-save)
@@ -775,6 +776,7 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                         />
                     ) : (
                         <P5Editor
+                            isDemo={isDemo}
                             key={`p5-${activeLesson.id}`}
                             initialCode={currentCode}
                             onChange={setCurrentCode}
@@ -948,9 +950,9 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                 ) : (
                                     <Button
                                         id="next-step-btn"
-                                        onClick={activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep)) ? () => { } : handleNextStep}
-                                        disabled={isValidating || (activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep)))}
-                                        className={`w-full justify-center py-4 text-sm font-bold ${isValidating || (activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep))) ? 'opacity-80 bg-slate-200 text-slate-500 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98] transition-transform'} ${!activeLesson.isAiGuided ? 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600' : ''}`}
+                                        onClick={isDemo && activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep)) ? () => { } : handleNextStep}
+                                        disabled={isValidating || (isDemo && activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep)))}
+                                        className={`w-full justify-center py-4 text-sm font-bold ${isValidating || (isDemo && activeLesson.isAiGuided && (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep))) ? 'opacity-80 bg-slate-200 text-slate-500 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98] transition-transform'} ${!activeLesson.isAiGuided ? 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600' : ''}`}
                                     >
                                         {isValidating ? (
                                             <><FaSpinner className="animate-spin mr-2" /> Checking...</>
@@ -962,10 +964,13 @@ const StudentView: React.FC<StudentViewProps> = ({ lessons, units, onSubmitLesso
                                             <>Check Answer <FaChevronRight className="ml-2" /></>
                                         ) : isChoiceStep ? (
                                             <>Submit Answer <FaChevronRight className="ml-2" /></>
-                                        ) : isCodeStep ? (
-                                            <>Check My Code (Main App Only) <FaChevronRight className="ml-2" /></>
+                                        ) : (isCodeStep || (!isTextStep && !isChoiceStep && !isNextStep)) ? (
+                                            <>
+                                                {isDemo ? "Check My Code (Main App Only)" : "Check My Code"}
+                                                <FaChevronRight className="ml-2" />
+                                            </>
                                         ) : (
-                                            <>Check My Code (Main App Only) <FaChevronRight className="ml-2" /></>
+                                            <>Check My Code <FaChevronRight className="ml-2" /></>
                                         )}
                                     </Button>
                                 )}

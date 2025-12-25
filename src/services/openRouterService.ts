@@ -6,7 +6,7 @@ const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 // Use a robust model for JSON generation
-const MODEL_NAME = "x-ai/grok-4.1-fast";
+const MODEL_NAME = "google/gemini-2.0-flash-001";
 
 // Helper to clean JSON output from models that might wrap it in markdown
 const cleanJson = (text: string): string => {
@@ -40,6 +40,7 @@ async function callOpenRouter(messages: any[], jsonMode: boolean = false): Promi
         messages: messages,
         response_format: jsonMode ? { type: "json_object" } : undefined,
         temperature: 0.7,
+        max_tokens: 1000,
       })
     });
 
@@ -77,18 +78,18 @@ const JSON_EXAMPLE = `
 `;
 
 export const generateLessonPlan = async (
-  topic: string, 
-  level: string, 
-  type: LessonType, 
+  topic: string,
+  level: string,
+  type: LessonType,
   previousLessonsContext: string = "",
   editorType: 'p5' | 'scratch' = 'p5'
 ): Promise<AILessonResponse | null> => {
   const isScratch = editorType === 'scratch';
-  
+
   // Detect if this is a robotics-related topic
   const roboticsKeywords = ['robot', 'robotics', 'ev3', 'lego', 'boost', 'microbit', 'micro:bit', 'makey makey', 'arduino', 'sensor', 'motor', 'servo', 'actuator', 'hardware', 'physical computing'];
   const isRobotics = roboticsKeywords.some(keyword => topic.toLowerCase().includes(keyword.toLowerCase()));
-  
+
   let typePrompt = "";
   if (type === 'Lesson') {
     if (isScratch) {
@@ -136,7 +137,7 @@ export const generateLessonPlan = async (
     if (isScratch) {
       // Re-check robotics for assignments (already checked above, but keeping for clarity)
       const isRoboticsAssignment = roboticsKeywords.some(keyword => topic.toLowerCase().includes(keyword.toLowerCase()));
-      
+
       if (isRoboticsAssignment) {
         typePrompt = `
         This is a SCRATCH ROBOTICS ASSIGNMENT (TEST) - INDEPENDENT WORK WITH PHYSICAL HARDWARE.
@@ -217,7 +218,7 @@ export const generateLessonPlan = async (
   ${schemaDescription}`;
 
   const platformName = isScratch ? 'Scratch' : 'p5.js';
-  
+
   let roboticsGuidance = '';
   if (isRobotics && isScratch) {
     roboticsGuidance = `
@@ -231,17 +232,17 @@ export const generateLessonPlan = async (
   - If topic mentions specific hardware (EV3, BOOST, micro:bit), focus on that hardware's blocks
   `;
   }
-  
+
   const userPrompt = `Create a ${platformName} ${type}. Topic: "${topic}". Level: "${level}".
   ${typePrompt}
   ${roboticsGuidance}
   
   CRITICAL INSTRUCTIONS:
   1. Audience: 10-year-olds. Simple, fun language.
-  ${isScratch ? 
-    '2. Starter Code: Always use "{}" for Scratch lessons.\n  3. Steps: Refer to blocks by name (e.g. "move 10 steps block", "turn right 15 degrees").' : 
-    '2. Starter Code: Must use \\n for newlines. Comments included.\n  3. Steps: Use [NEXT] for pure observation steps if needed.'
-  }
+  ${isScratch ?
+      '2. Starter Code: Always use "{}" for Scratch lessons.\n  3. Steps: Refer to blocks by name (e.g. "move 10 steps block", "turn right 15 degrees").' :
+      '2. Starter Code: Must use \\n for newlines. Comments included.\n  3. Steps: Use [NEXT] for pure observation steps if needed.'
+    }
   4. Tags: 3-5 concepts.
   `;
 

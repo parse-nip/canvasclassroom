@@ -245,6 +245,7 @@ const noopTabClick = (_tabId: string) => { };
 
 // Stable Student View component - defined outside App to prevent remounting on re-renders
 interface StableStudentViewProps {
+  isDemo?: boolean;
   session: Session;
   isDarkMode: boolean;
   setIsDarkMode: (value: boolean) => void;
@@ -263,6 +264,7 @@ interface StableStudentViewProps {
 }
 
 const StableStudentView: React.FC<StableStudentViewProps> = React.memo(({
+  isDemo,
   session,
   isDarkMode,
   setIsDarkMode,
@@ -310,6 +312,7 @@ const StableStudentView: React.FC<StableStudentViewProps> = React.memo(({
         </div>
       ) : (
         <StudentView
+          isDemo={isDemo}
           lessons={lessons}
           units={units}
           onSubmitLesson={onSubmitLesson}
@@ -1122,6 +1125,7 @@ const App: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           {currentClassId ? (
             <TeacherDashboard
+              isDemo={isDemoSubdomain}
               onAddLesson={handleAddLesson}
               onUpdateLesson={handleUpdateLesson}
               onDeleteLesson={handleDeleteLesson}
@@ -1217,6 +1221,7 @@ const App: React.FC = () => {
       >
         <div className="container mx-auto px-4 py-8">
           <TeacherDashboard
+            isDemo={isDemoSubdomain}
             onAddLesson={handleAddLesson}
             onUpdateLesson={handleUpdateLesson}
             onDeleteLesson={handleDeleteLesson}
@@ -1411,6 +1416,7 @@ const App: React.FC = () => {
           <ProtectedRoute session={session} requiredRole="student" loading={loading}>
             {isStudentView && (
               <StableStudentView
+                isDemo={isDemoSubdomain}
                 session={session}
                 isDarkMode={isDarkMode}
                 setIsDarkMode={setIsDarkMode}
@@ -1437,6 +1443,7 @@ const App: React.FC = () => {
           <ProtectedRoute session={session} requiredRole="student" loading={loading}>
             {isStudentView && (
               <StableStudentView
+                isDemo={isDemoSubdomain}
                 session={session}
                 isDarkMode={isDarkMode}
                 setIsDarkMode={setIsDarkMode}

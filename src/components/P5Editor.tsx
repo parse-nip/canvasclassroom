@@ -9,6 +9,7 @@ interface P5EditorProps {
   onExplainSelection?: (selection: string) => void;
   onExplainError?: (error: string) => void;
   lessonTitle?: string;
+  isDemo?: boolean;
 }
 
 const CHEAT_SHEET = [
@@ -60,7 +61,8 @@ const P5Editor: React.FC<P5EditorProps> = ({
   readOnly = false,
   onExplainSelection,
   onExplainError,
-  lessonTitle = "Untitled Sketch"
+  lessonTitle = "Untitled Sketch",
+  isDemo = false
 }) => {
   const [code, setCode] = useState(initialCode);
   const [iframeSrc, setIframeSrc] = useState<string>('');
@@ -336,14 +338,17 @@ const P5Editor: React.FC<P5EditorProps> = ({
             <div id="code-area" className="flex-1 flex overflow-hidden relative">
               {/* Floating AI Tooltip */}
               {showExplainTooltip && !readOnly && (
-                <div className="absolute z-20 top-4 right-4 opacity-70">
+                <div className="absolute z-20 top-4 right-4 animate-in fade-in zoom-in duration-300">
                   <button
-                    onClick={() => { }}
-                    disabled={true}
-                    className="bg-slate-400 text-white text-xs font-bold px-3 py-2 rounded-full shadow-lg flex items-center gap-2 cursor-not-allowed"
-                    title="This feature is only available in the main app"
+                    onClick={isDemo ? () => { } : triggerExplain}
+                    className={`text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg flex items-center gap-2 transition-all group ${isDemo
+                        ? 'bg-slate-400 cursor-not-allowed opacity-70'
+                        : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-105 active:scale-95'
+                      }`}
+                    title={isDemo ? "This feature is only available in the main app" : "Get AI explanation for this code"}
                   >
-                    <FaWandMagicSparkles /> Explain Selection (Main App)
+                    <FaWandMagicSparkles className={isDemo ? "" : "group-hover:animate-pulse"} />
+                    {isDemo ? "Explain Selection (Main App)" : "Explain Selection"}
                   </button>
                 </div>
               )}
@@ -396,12 +401,15 @@ const P5Editor: React.FC<P5EditorProps> = ({
                       <span>{log}</span>
                       {isError && onExplainError && (
                         <button
-                          onClick={() => { }}
-                          disabled={true}
-                          className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[10px] font-bold cursor-not-allowed flex items-center gap-1"
-                          title="This feature is only available in the main app"
+                          onClick={isDemo ? () => { } : () => onExplainError(log.replace('[ERROR] ', ''))}
+                          className={`ml-2 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all ${isDemo
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                              : 'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50'
+                            }`}
+                          title={isDemo ? "This feature is only available in the main app" : "Get AI help with this error"}
                         >
-                          <FaWandMagicSparkles /> Fix? (Main App)
+                          <FaWandMagicSparkles className={isDemo ? "" : "animate-pulse"} />
+                          {isDemo ? "Fix? (Main App)" : "Fix with AI"}
                         </button>
                       )}
                     </div>

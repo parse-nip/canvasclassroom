@@ -75,6 +75,7 @@ interface TeacherDashboardProps {
   };
   onStartScratchGeneration?: (analysis: any, data: any, lessonCount: number) => void;
   onClearScratchStatus?: () => void;
+  isDemo?: boolean;
 }
 
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
@@ -112,7 +113,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onImportCurriculum,
   scratchGenerationStatus,
   onStartScratchGeneration,
-  onClearScratchStatus
+  onClearScratchStatus,
+  isDemo = false
 }) => {
   const [internalActiveTab, setInternalActiveTab] = useState<'planner' | 'curriculum' | 'grading' | 'analytics' | 'roster' | 'communication' | 'tools' | 'help'>('planner');
 
@@ -1339,12 +1341,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Topic</label>
                         <button
                           id="btn-suggestions"
-                          onClick={() => { }}
-                          disabled={true}
-                          className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/30 px-2 py-1 rounded cursor-not-allowed flex items-center gap-1 border border-slate-200 dark:border-slate-800"
-                          title="This feature is only available in the main app"
+                          onClick={handleGetSuggestions}
+                          disabled={isLoadingSuggestions || isDemo}
+                          className={`text-xs font-bold px-2 py-1 rounded flex items-center gap-1 border transition-colors ${isDemo
+                            ? "text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 cursor-not-allowed"
+                            : "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
+                            }`}
+                          title={isDemo ? "This feature is only available in the main app" : "Get AI suggestions"}
                         >
-                          <FaLightbulb /> Need Ideas? (Main App Only)
+                          <FaLightbulb /> {isDemo ? "Need Ideas? (Main App Only)" : "Need Ideas?"}
                         </button>
                       </div>
                       <input
@@ -1412,11 +1417,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
                   <Button
                     id="btn-generate"
-                    onClick={() => { }}
-                    disabled={true}
-                    className="w-full bg-slate-200 dark:bg-slate-800 text-slate-500 cursor-not-allowed border-0"
+                    onClick={handleGenerate}
+                    disabled={isGenerating || !topic || isDemo}
+                    className={isDemo ? "w-full bg-slate-200 dark:bg-slate-800 text-slate-500 cursor-not-allowed border-0" : "w-full"}
                   >
-                    Generate {lessonType} (Main App Only)
+                    {isGenerating ? 'Generating...' : isDemo ? `Generate ${lessonType} (Main App Only)` : `Generate ${lessonType}`}
                   </Button>
                 </CardContent>
               </Card>
@@ -1544,21 +1549,21 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <div id="create-unit-area" className="flex gap-2 items-center">
                 <Button
                   variant="outline"
-                  onClick={() => { }}
-                  disabled={true}
-                  className="mr-2 border-slate-200 text-slate-400 cursor-not-allowed dark:border-slate-800 dark:text-slate-500"
-                  title="This feature is only available in the main app"
+                  onClick={() => setIsCurriculumModalOpen(true)}
+                  disabled={isDemo}
+                  className={isDemo ? "mr-2 border-slate-200 text-slate-400 cursor-not-allowed dark:border-slate-800 dark:text-slate-500" : "mr-2"}
+                  title={isDemo ? "This feature is only available in the main app" : "Generate full curriculum with AI"}
                 >
-                  <FaWandMagicSparkles className="mr-2" /> AI Curriculum (Main App)
+                  <FaWandMagicSparkles className="mr-2" /> {isDemo ? "AI Curriculum (Main App)" : "AI Curriculum"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => { }}
-                  disabled={true}
-                  className="mr-2 border-slate-200 text-slate-400 cursor-not-allowed dark:border-slate-800 dark:text-slate-500"
-                  title="This feature is only available in the main app"
+                  onClick={() => setIsScratchImportOpen(true)}
+                  disabled={isDemo}
+                  className={isDemo ? "mr-2 border-slate-200 text-slate-400 cursor-not-allowed dark:border-slate-800 dark:text-slate-500" : "mr-2"}
+                  title={isDemo ? "This feature is only available in the main app" : "Import from Scratch project"}
                 >
-                  <FaLink className="mr-2" /> Import Scratch (Main App)
+                  <FaLink className="mr-2" /> {isDemo ? "Import Scratch (Main App)" : "Import Scratch"}
                 </Button>
                 <input
                   type="text"
@@ -2408,6 +2413,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         existingUnitsCount={units.filter(u => u.classId === classId).length}
         onStartBackgroundGeneration={onStartScratchGeneration}
         backgroundGenerationActive={scratchGenerationStatus?.active}
+        isDemo={isDemo}
       />
 
       {/* Class Manager Modal */}

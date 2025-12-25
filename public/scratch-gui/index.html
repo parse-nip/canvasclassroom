@@ -82,6 +82,9 @@
         console.log('✅ VM available on window.vm after', vmCheckCount, 'checks');
         clearInterval(checkVM);
 
+        // Notify parent that Scratch is fully loaded and VM is ready
+        window.parent.postMessage({ type: 'SCRATCH_LOADED' }, '*');
+
         // Load pending project if one was queued
         if (pendingProject) {
           console.log('📥 Loading queued project');

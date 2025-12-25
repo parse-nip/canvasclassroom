@@ -134,7 +134,7 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
   // Load Scratch GUI in iframe - only once on mount
   useEffect(() => {
     if (!iframeRef.current) return;
-    iframeRef.current.src = '/scratch-editor.html';
+    iframeRef.current.src = '/scratch-gui/index.html';
   }, []);
 
   // Load project data when provided directly (e.g., from SB3 file)
@@ -290,7 +290,7 @@ const ScratchEditor: React.FC<ScratchEditorProps> = ({
         projectLoadedTimeoutRef.current = setTimeout(() => {
           setProjectLoaded(true);
           projectLoadedTimeoutRef.current = null;
-        }, 500);
+        }, 50);
       } else if (event.data?.type === 'PROJECT_LOAD_ERROR') {
         console.error('🔍 [DEBUG ScratchEditor] PROJECT_LOAD_ERROR:', event.data.error);
         // On load error, use default project
