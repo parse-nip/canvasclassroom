@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { generateLessonPlan, suggestCurriculum, generateFullCurriculum } from '../services/openRouterService';
 import { supabaseService } from '../services/supabaseService';
 import { LessonPlan, AILessonResponse, Submission, Student, Unit, LessonType, CurriculumSuggestion, FeedbackTemplate, HelpRequest, Class, Announcement, FullCurriculumResponse } from '../types';
@@ -116,6 +117,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onClearScratchStatus,
   isDemo = false
 }) => {
+  const navigate = useNavigate();
   const [internalActiveTab, setInternalActiveTab] = useState<'planner' | 'curriculum' | 'grading' | 'analytics' | 'roster' | 'communication' | 'tools' | 'help'>('planner');
 
   // Use controlled tab if provided, otherwise use internal state
@@ -184,8 +186,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [draggedLessonId, setDraggedLessonId] = useState<string | null>(null);
 
   // Edit Mode State
-  const [editingLesson, setEditingLesson] = useState<LessonPlan | null>(null);
-  const [isCreatingCustom, setIsCreatingCustom] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
 
   // Suggestions State
@@ -451,24 +451,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleCreateCustomLesson = () => {
-    const emptyLesson: LessonPlan = {
-      id: Date.now().toString(),
-      classId: classId,
-      topic: 'Custom Topic',
-      type: 'Lesson',
-      title: 'New Custom Lesson',
-      difficulty: 'Beginner',
-      objective: 'Learning Objective',
-      description: 'Short description',
-      theory: '**Welcome!**\nWrite your mission brief here.',
-      steps: ['[NEXT] First step (Observation)', 'Write code step here'],
-      starterCode: '// Write your starter code here\nfunction setup() {\n  createCanvas(400, 400);\n}',
-      challenge: 'Bonus challenge',
-      isAiGuided: true,
-      tags: []
-    };
-    setEditingLesson(emptyLesson);
-    setIsCreatingCustom(true);
+    navigate(`/teacher/${classId}/designer`);
   };
 
   const handleCreateUnit = () => {
@@ -547,20 +530,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleEditLesson = (lesson: LessonPlan) => {
-    setEditingLesson({ ...lesson });
-    setIsCreatingCustom(false);
-  };
-
-  const handleSaveEdit = () => {
-    if (editingLesson) {
-      if (isCreatingCustom) {
-        onAddLesson(editingLesson);
-      } else {
-        onUpdateLesson(editingLesson);
-      }
-      setEditingLesson(null);
-      setIsCreatingCustom(false);
-    }
+    navigate(`/teacher/${classId}/designer/${lesson.id}`);
   };
 
   const handleSaveUnitEdit = () => {
@@ -958,99 +928,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editingLesson && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200 dark:border-slate-700">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white">{isCreatingCustom ? 'Create Custom Lesson' : 'Edit Lesson'}</h3>
-              <button onClick={() => setEditingLesson(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><FaXmark /></button>
-            </div>
-            <div className="p-6 overflow-y-auto space-y-4 flex-1">
-              {/* Syntax Guide Panel */}
-              <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-lg p-4 text-xs text-indigo-800 dark:text-indigo-300 mb-4">
-                <h4 className="font-bold flex items-center gap-2 mb-2"><FaCode /> Syntax Guide</h4>
-                <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Code Task:</strong> Just write the instruction (e.g. "Draw a circle"). AI will check code.</li>
-                  <li><strong>Observation:</strong> Start with <code>[NEXT]</code> (e.g. "[NEXT] Run the code"). No AI check.</li>
-                  <li><strong>Question:</strong> Start with <code>[TEXT]</code> (e.g. "[TEXT] Why is it blue?"). AI checks text.</li>
-                </ul>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Title</label>
-                  <input
-                    className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded p-2 text-sm"
-                    value={editingLesson.title}
-                    onChange={(e) => setEditingLesson({ ...editingLesson, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Type</label>
-                  <select
-                    className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded p-2 text-sm"
-                    value={editingLesson.type}
-                    onChange={(e) => setEditingLesson({ ...editingLesson, type: e.target.value as LessonType })}
-                  >
-                    <option value="Lesson">Interactive Lesson</option>
-                    <option value="Assignment">Assignment (Test)</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Objective</label>
-                <input
-                  className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded p-2 text-sm"
-                  value={editingLesson.objective}
-                  onChange={(e) => setEditingLesson({ ...editingLesson, objective: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Steps (One per line)</label>
-                <textarea
-                  className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded p-2 text-sm font-mono bg-slate-50"
-                  rows={6}
-                  value={editingLesson.steps.join('\n')}
-                  onChange={(e) => setEditingLesson({ ...editingLesson, steps: e.target.value.split('\n') })}
-                  placeholder="[NEXT] Look at the code...&#10;Change rect to circle...&#10;[TEXT] Why did it change?"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Starter Code</label>
-                <textarea
-                  className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded p-2 text-sm font-mono bg-slate-50"
-                  rows={8}
-                  value={editingLesson.starterCode}
-                  onChange={(e) => setEditingLesson({ ...editingLesson, starterCode: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Mission Brief (Theory)</label>
-                <textarea
-                  className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded p-2 text-sm font-mono"
-                  rows={4}
-                  value={editingLesson.theory || ''}
-                  onChange={(e) => setEditingLesson({ ...editingLesson, theory: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Reflection Question (Optional)</label>
-                <input
-                  className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded p-2 text-sm"
-                  value={editingLesson.reflectionQuestion || ''}
-                  onChange={(e) => setEditingLesson({ ...editingLesson, reflectionQuestion: e.target.value })}
-                  placeholder="Ask a question for students to answer in text..."
-                />
-              </div>
-            </div>
-            <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setEditingLesson(null)}>Cancel</Button>
-              <Button onClick={handleSaveEdit}>Save Changes</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Edit Unit Modal */}
 
       {/* Edit Unit Modal */}
       {editingUnit && (
@@ -1275,7 +1153,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        <FaWandMagicSparkles className="text-indigo-600 dark:text-indigo-400" />
+                        <span className="text-indigo-600 dark:text-indigo-400"><FaWandMagicSparkles /></span>
                         AI Lesson Planner
                       </CardTitle>
                       <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -1283,7 +1161,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       </p>
                     </div>
                     <Button id="planner-custom-btn" variant="outline" size="sm" onClick={handleCreateCustomLesson}>
-                      <FaPen className="mr-2" /> Create Custom
+                      <span className="mr-2"><FaPen /></span> Create Custom
                     </Button>
                   </div>
                 </CardHeader>
@@ -1297,7 +1175,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           className={`flex-1 border rounded-lg p-3 cursor-pointer transition-all ${lessonType === 'Lesson' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-500' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
                           <div className="flex items-center gap-2 font-bold text-sm text-slate-800 dark:text-slate-200">
-                            <FaBookOpen className="text-indigo-500" /> Interactive Lesson
+                            <span className="text-indigo-500"><FaBookOpen /></span> Interactive Lesson
                           </div>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Guided steps with theory. Best for teaching new concepts.</p>
                         </div>
@@ -1306,7 +1184,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           className={`flex-1 border rounded-lg p-3 cursor-pointer transition-all ${lessonType === 'Assignment' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-500' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
                           <div className="flex items-center gap-2 font-bold text-sm text-slate-800 dark:text-slate-200">
-                            <FaClipboardCheck className="text-pink-500" /> Coding Assignment
+                            <span className="text-pink-500"><FaClipboardCheck /></span> Coding Assignment
                           </div>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Challenges and projects. Best for practice.</p>
                         </div>

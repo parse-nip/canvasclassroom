@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import TeacherDashboard from './components/TeacherDashboard';
+import LessonDesigner from './components/LessonDesigner';
 import StudentView from './components/StudentView';
 import TutorialOverlay, { TutorialStep, SubStep } from './components/TutorialOverlay';
 import ClassManager from './components/ClassManager';
@@ -1407,6 +1408,19 @@ const App: React.FC = () => {
         element={
           <ProtectedRoute session={session} requiredRole="teacher" loading={loading}>
             <TeacherClassRoute />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/:classId/designer/:lessonId?"
+        element={
+          <ProtectedRoute session={session} requiredRole="teacher" loading={loading}>
+            <LessonDesigner
+              onAddLesson={handleAddLesson}
+              onUpdateLesson={handleUpdateLesson}
+              lessons={lessons}
+              units={units}
+            />
           </ProtectedRoute>
         }
       />

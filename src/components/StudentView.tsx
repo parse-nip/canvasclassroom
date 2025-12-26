@@ -6,7 +6,7 @@ import { Button } from './ui/Button';
 import P5Editor from './P5Editor';
 import ScratchEditor from './ScratchEditor';
 import { FaChevronRight, FaCircleCheck, FaLightbulb, FaRobot, FaPaperPlane, FaArrowLeft, FaLock, FaSpinner, FaCheck, FaBookOpen, FaStar, FaPen, FaCommentDots, FaEye, FaClipboardCheck, FaArrowRotateLeft, FaXmark, FaClock, FaCode } from 'react-icons/fa6';
-import { analyzeStudentCode, validateStep, explainError } from '../services/openRouterService';
+import { analyzeStudentCode, validateStep, validateScratchStep, explainError } from '../services/openRouterService';
 
 interface StudentViewProps {
     lessons: LessonPlan[];
@@ -71,6 +71,7 @@ const StudentView: React.FC<StudentViewProps> = ({ isDemo = false, lessons, unit
     const [stepTextAnswer, setStepTextAnswer] = useState('');
     const [selectedChoice, setSelectedChoice] = useState<string>('');
     const [reviewStepIndex, setReviewStepIndex] = useState<number | null>(null);
+    const [previousProjectState, setPreviousProjectState] = useState<string | null>(null); // For Scratch sprite detection
     const [sidebarWidth, setSidebarWidth] = useState(380);
     const [isResizing, setIsResizing] = useState(false);
 
@@ -239,6 +240,8 @@ const StudentView: React.FC<StudentViewProps> = ({ isDemo = false, lessons, unit
         setStepTextAnswer('');
         setSelectedChoice('');
         setReviewStepIndex(null);
+        // For Scratch sprite detection: store initial state to compare against
+        setPreviousProjectState(lesson.editorType === 'scratch' ? initialCode : null);
     };
 
     const handleExplainSelection = async (selection: string) => {
@@ -408,6 +411,46 @@ const StudentView: React.FC<StudentViewProps> = ({ isDemo = false, lessons, unit
         setStepFeedback(null);
 
         const inputToValidate = isTextStep ? stepTextAnswer : currentCode;
+
+        // Use sprite-aware validation for Scratch lessons
+        if (activeLesson.editorType === 'scratch' && !isTextStep) {
+            // Find lesson index to check if it's the first one
+            const unitLessons = lessons.filter(l => l.unitId === activeLesson.unitId);
+            const lessonIndex = unitLessons.findIndex(l => l.id === activeLesson.id);
+            const isFirstLesson = lessonIndex === 0;
+
+            const scratchResult = await validateScratchStep(
+                currentCode,
+                previousProjectState,
+                currentInstruction,
+                isFirstLesson,
+                activeLesson.objective
+            );
+
+            if (scratchResult) {
+                if (scratchResult.passed) {
+                    setStepFeedback({ passed: true, message: scratchResult.feedback });
+                    const historyItem: StepHistory = {
+                        stepIndex: currentStepIndex,
+                        studentInput: `Modified sprites: ${scratchResult.modifiedSprites?.join(', ') || 'none'}`,
+                        feedback: scratchResult.feedback,
+                        passed: true
+                    };
+                    setTimeout(() => {
+                        onUpdateProgress(activeLesson.id, currentCode, currentStepIndex + 1, historyItem);
+                        setStepFeedback(null);
+                        // Update previous state for next step comparison
+                        setPreviousProjectState(currentCode);
+                    }, 2000);
+                } else {
+                    setStepFeedback({ passed: false, message: scratchResult.feedback });
+                }
+            }
+            setIsValidating(false);
+            return;
+        }
+
+        // Standard validation for p5.js and text steps
         const result = await validateStep(inputToValidate, currentInstruction);
 
         if (result) {
@@ -675,6 +718,9 @@ const StudentView: React.FC<StudentViewProps> = ({ isDemo = false, lessons, unit
         choiceOptions = parts.slice(1, -1); // All except first (question) and last (answer)
         choiceCorrectAnswer = parts[parts.length - 1];
     }
+
+    // Safety: Remove any stray [NEXT] or [CODE] tags that the AI might have accidentally put in the middle of a string
+    displayInstruction = displayInstruction.replace(/\[(CODE|TEXT|NEXT|CHOICE)\]/g, '').trim();
 
     return (
         <div className="flex flex-col animate-in slide-in-from-right-4 h-full w-full absolute inset-0 bg-white dark:bg-slate-950">

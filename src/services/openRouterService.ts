@@ -1,4 +1,5 @@
 
+import JSZip from 'jszip';
 import { AILessonResponse, AICodeAnalysis, AIStepValidation, LessonType, CurriculumSuggestion, FullCurriculumResponse, ScratchProjectAnalysis, ScratchCurriculumResponse } from "../types";
 
 // API Key must come from the environment variable
@@ -20,7 +21,7 @@ const cleanJson = (text: string): string => {
 };
 
 // Generic OpenRouter Call
-async function callOpenRouter(messages: any[], jsonMode: boolean = false): Promise<string | null> {
+async function callOpenRouter(messages: any[], jsonMode: boolean = false, maxTokens: number = 1000): Promise<string | null> {
   if (!apiKey) {
     console.error("OpenRouter API Key is missing. Please set VITE_OPENROUTER_API_KEY in your .env file.");
     throw new Error("OpenRouter API key not configured. Please set VITE_OPENROUTER_API_KEY in your environment variables.");
@@ -40,7 +41,7 @@ async function callOpenRouter(messages: any[], jsonMode: boolean = false): Promi
         messages: messages,
         response_format: jsonMode ? { type: "json_object" } : undefined,
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: maxTokens,
       })
     });
 
@@ -246,10 +247,11 @@ export const generateLessonPlan = async (
   4. Tags: 3-5 concepts.
   `;
 
+  // Use higher token limit for lesson generation to ensure complete output
   const text = await callOpenRouter([
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt }
-  ], true);
+  ], true, 2000);
 
   if (!text) return null;
 
@@ -333,6 +335,396 @@ export const validateStep = async (input: string, instruction: string): Promise<
     return JSON.parse(cleanJson(text)) as AIStepValidation;
   } catch (e) {
     console.error("Failed to parse Validation JSON", e);
+    return null;
+  }
+};
+
+// Helper: Parse Scratch project JSON and extract comprehensive sprite info
+interface SpriteVisualInfo {
+  name: string;
+  isStage: boolean;
+  blockCount: number;
+  blockOpcodes: string[];
+  blockEntries?: any[]; // Store more detailed block info for parameter detection
+  // Visual properties
+  x: number;
+  y: number;
+  size: number;
+  direction: number;
+  visible: boolean;
+  currentCostume: number;
+  costumeName: string;
+  costumeCount: number;
+  // Stage-specific
+  backdropName?: string;
+  backdropIndex?: number;
+}
+
+const parseScratchProjectExtended = async (projectJson: string): Promise<SpriteVisualInfo[] | null> => {
+  try {
+    let project;
+
+    // Handle Base64 SB3 data - decode it using JSZip
+    if (projectJson.startsWith('data:')) {
+      console.log('[validateScratchStep] Decoding Base64 SB3 data for change detection...');
+
+      // Extract the Base64 part
+      const base64Content = projectJson.split(',')[1];
+      if (!base64Content) return null;
+
+      const zip = new JSZip();
+      const content = await zip.loadAsync(base64Content, { base64: true });
+
+      // Scratch SB3 projects contain a project.json file at the root
+      const jsonFile = content.file('project.json');
+      if (!jsonFile) {
+        console.error('[validateScratchStep] project.json not found in SB3 archive');
+        return null;
+      }
+
+      const jsonText = await jsonFile.async('string');
+      project = JSON.parse(jsonText);
+    } else {
+      project = JSON.parse(projectJson);
+    }
+
+    // Handle double-encoded JSON
+    if (typeof project === 'string') {
+      project = JSON.parse(project);
+    }
+
+    if (!project.targets || !Array.isArray(project.targets)) {
+      return null;
+    }
+
+    return project.targets.map((target: any) => {
+      const blocks = target.blocks || {};
+      const blockEntries = Object.values(blocks).filter((b: any) => b && typeof b === 'object' && b.opcode);
+      const opcodes = blockEntries.map((b: any) => b.opcode);
+
+      const costumes = target.costumes || [];
+      const currentCostumeIndex = target.currentCostume || 0;
+      const currentCostume = costumes[currentCostumeIndex];
+
+      return {
+        name: target.name || 'Unknown',
+        isStage: target.isStage === true,
+        blockCount: opcodes.length,
+        blockOpcodes: opcodes,
+        blockEntries: blockEntries,
+        // Visual properties (sprites)
+        x: target.x ?? 0,
+        y: target.y ?? 0,
+        size: target.size ?? 100,
+        direction: target.direction ?? 90,
+        visible: target.visible !== false, // Default to visible
+        currentCostume: currentCostumeIndex,
+        costumeName: currentCostume?.name || 'unknown',
+        costumeCount: costumes.length,
+        // Stage backdrop
+        backdropName: target.isStage ? currentCostume?.name : undefined,
+        backdropIndex: target.isStage ? currentCostumeIndex : undefined,
+      };
+    });
+  } catch (e) {
+    console.error('[validateScratchStep] Failed to parse project JSON:', e);
+    return null;
+  }
+};
+
+// Enhanced: Detect all types of changes between project states
+interface SpriteChange {
+  spriteName: string;
+  isStage: boolean;
+  changes: string[];
+  // Block changes
+  blocksAdded: number;
+  blocksRemoved: number;
+  newOpcodes: string[];
+  // Visual changes
+  positionChanged: boolean;
+  sizeChanged: boolean;
+  directionChanged: boolean;
+  visibilityChanged: boolean;
+  costumeChanged: boolean;
+  backdropChanged: boolean;
+  // Details
+  oldPosition?: { x: number; y: number };
+  newPosition?: { x: number; y: number };
+  oldSize?: number;
+  newSize?: number;
+  oldCostume?: string;
+  newCostume?: string;
+}
+
+const detectAllChanges = (
+  previousSprites: SpriteVisualInfo[] | null,
+  currentSprites: SpriteVisualInfo[] | null
+): { spriteChanges: SpriteChange[]; newSprites: string[]; removedSprites: string[] } => {
+  if (!currentSprites) return { spriteChanges: [], newSprites: [], removedSprites: [] };
+
+  const spriteChanges: SpriteChange[] = [];
+  const newSprites: string[] = [];
+  const removedSprites: string[] = [];
+
+  // Check for new and modified sprites
+  for (const current of currentSprites) {
+    const previous = previousSprites?.find(s => s.name === current.name);
+
+    if (!previous) {
+      // New sprite added
+      newSprites.push(current.name);
+      if (current.blockCount > 0) {
+        spriteChanges.push({
+          spriteName: current.name,
+          isStage: current.isStage,
+          changes: ['newly added'],
+          blocksAdded: current.blockCount,
+          blocksRemoved: 0,
+          newOpcodes: current.blockOpcodes,
+          positionChanged: false,
+          sizeChanged: false,
+          directionChanged: false,
+          visibilityChanged: false,
+          costumeChanged: false,
+          backdropChanged: false,
+        });
+      }
+      continue;
+    }
+
+    // Detect all types of changes
+    const changes: string[] = [];
+    const change: SpriteChange = {
+      spriteName: current.name,
+      isStage: current.isStage,
+      changes: [],
+      blocksAdded: Math.max(0, current.blockCount - previous.blockCount),
+      blocksRemoved: Math.max(0, previous.blockCount - current.blockCount),
+      newOpcodes: [],
+      positionChanged: false,
+      sizeChanged: false,
+      directionChanged: false,
+      visibilityChanged: false,
+      costumeChanged: false,
+      backdropChanged: false,
+    };
+
+    // Block and Parameter changes
+    const previousOpcodeSet = new Set(previous.blockOpcodes);
+    change.newOpcodes = current.blockOpcodes.filter(op => !previousOpcodeSet.has(op));
+
+    if (change.blocksAdded > 0) changes.push(`added ${change.blocksAdded} blocks`);
+    if (change.blocksRemoved > 0) changes.push(`removed ${change.blocksRemoved} blocks`);
+    if (change.newOpcodes.length > 0) {
+      changes.push(`new block types: ${change.newOpcodes.slice(0, 3).join(', ')}`);
+    }
+
+    // Detect if block values changed (even if opcodes stayed the same)
+    if (previous.blockEntries && current.blockEntries && change.blocksAdded === 0 && change.blocksRemoved === 0) {
+      const prevBlocksStr = JSON.stringify(previous.blockEntries.map(b => ({ op: b.opcode, inputs: b.inputs })));
+      const currBlocksStr = JSON.stringify(current.blockEntries.map(b => ({ op: b.opcode, inputs: b.inputs })));
+      if (prevBlocksStr !== currBlocksStr) {
+        changes.push('changed block settings or parameters');
+      }
+    }
+
+    // Position changes (only for non-stage sprites)
+    if (!current.isStage && (current.x !== previous.x || current.y !== previous.y)) {
+      change.positionChanged = true;
+      change.oldPosition = { x: previous.x, y: previous.y };
+      change.newPosition = { x: current.x, y: current.y };
+      changes.push(`moved from (${Math.round(previous.x)}, ${Math.round(previous.y)}) to (${Math.round(current.x)}, ${Math.round(current.y)})`);
+    }
+
+    // Size changes
+    if (current.size !== previous.size) {
+      change.sizeChanged = true;
+      change.oldSize = previous.size;
+      change.newSize = current.size;
+      changes.push(`size changed from ${Math.round(previous.size)}% to ${Math.round(current.size)}%`);
+    }
+
+    // Direction/rotation changes
+    if (current.direction !== previous.direction) {
+      change.directionChanged = true;
+      changes.push(`direction changed from ${Math.round(previous.direction)}° to ${Math.round(current.direction)}°`);
+    }
+
+    // Visibility changes
+    if (current.visible !== previous.visible) {
+      change.visibilityChanged = true;
+      changes.push(current.visible ? 'became visible' : 'became hidden');
+    }
+
+    // Costume changes (for sprites)
+    if (!current.isStage && current.costumeName !== previous.costumeName) {
+      change.costumeChanged = true;
+      change.oldCostume = previous.costumeName;
+      change.newCostume = current.costumeName;
+      changes.push(`costume changed from "${previous.costumeName}" to "${current.costumeName}"`);
+    }
+
+    // Backdrop changes (for stage)
+    if (current.isStage && current.backdropName !== previous.backdropName) {
+      change.backdropChanged = true;
+      change.oldCostume = previous.backdropName;
+      change.newCostume = current.backdropName;
+      changes.push(`backdrop changed from "${previous.backdropName}" to "${current.backdropName}"`);
+    }
+
+    if (changes.length > 0) {
+      change.changes = changes;
+      spriteChanges.push(change);
+    }
+  }
+
+  // Check for removed sprites
+  if (previousSprites) {
+    for (const prev of previousSprites) {
+      if (!currentSprites.find(s => s.name === prev.name)) {
+        removedSprites.push(prev.name);
+      }
+    }
+  }
+
+  return { spriteChanges, newSprites, removedSprites };
+};
+
+// Validate Scratch step with comprehensive change detection
+export interface ScratchStepValidation {
+  passed: boolean;
+  feedback: string;
+  modifiedSprites?: string[];
+  expectedSprite?: string;
+  changesDetected?: string[];
+}
+
+export const validateScratchStep = async (
+  currentProject: string,
+  previousProject: string | null,
+  instruction: string,
+  isFirstLesson: boolean = false,
+  lessonObjective: string = ""
+): Promise<ScratchStepValidation | null> => {
+  // Parse projects with extended info
+  const currentSprites = await parseScratchProjectExtended(currentProject);
+  const previousSprites = previousProject ? await parseScratchProjectExtended(previousProject) : null;
+  const { spriteChanges, newSprites, removedSprites } = detectAllChanges(previousSprites, currentSprites);
+
+  // Extract target sprite from instruction if mentioned
+  const spriteRegex = /(?:to|in|on|for)\s+(?:the\s+)?["']?(\w+)["']?\s+sprite/i;
+  const match = instruction.match(spriteRegex);
+  const expectedSprite = match ? match[1] : null;
+
+  // Check for background/backdrop mentions
+  const backgroundRegex = /(?:change|set|switch)\s+(?:the\s+)?(?:background|backdrop)/i;
+  const expectsBackgroundChange = backgroundRegex.test(instruction);
+
+  // Check for position/movement mentions
+  const positionRegex = /(?:move|position|drag|place)\s+(?:the\s+)?(?:sprite|cat|\w+)\s+(?:to|at)/i;
+  const expectsPositionChange = positionRegex.test(instruction);
+
+  // Build comprehensive context about all changes
+  let modificationContext = '';
+  const allChanges: string[] = [];
+
+  if (newSprites.length > 0) {
+    allChanges.push(`New sprites added: ${newSprites.join(', ')}`);
+  }
+  if (removedSprites.length > 0) {
+    allChanges.push(`Sprites removed: ${removedSprites.join(', ')}`);
+  }
+
+  if (spriteChanges.length === 0 && newSprites.length === 0 && removedSprites.length === 0) {
+    modificationContext = 'No changes detected since the last step.';
+  } else {
+    const changeLines: string[] = [];
+
+    for (const change of spriteChanges) {
+      const targetName = change.isStage ? 'Stage (background)' : `"${change.spriteName}" sprite`;
+      changeLines.push(`${targetName}:`);
+      for (const c of change.changes) {
+        changeLines.push(`  - ${c}`);
+        allChanges.push(`${change.spriteName}: ${c}`);
+      }
+    }
+
+    modificationContext = `DETECTED CHANGES:\n${newSprites.length > 0 ? `New sprites: ${newSprites.join(', ')}\n` : ''}${removedSprites.length > 0 ? `Removed sprites: ${removedSprites.join(', ')}\n` : ''}${changeLines.join('\n')}`;
+
+    // Check if the student edited ONE sprite but the instruction mentions ANOTHER
+    if (spriteChanges.length === 1 && expectedSprite) {
+      const editedSprite = spriteChanges[0].spriteName;
+      if (editedSprite.toLowerCase() !== expectedSprite.toLowerCase() && !spriteChanges[0].isStage) {
+        allChanges.push(`WRONG SPRITE: Student edited "${editedSprite}" but should have edited "${expectedSprite}"`);
+      }
+    }
+  }
+
+  const schemaDescription = `
+  RETURN ONLY JSON. Structure:
+  {
+    "passed": boolean,
+    "feedback": "Simple feedback string for a 10-year-old",
+    "wrongSprite": boolean (true if student edited wrong sprite),
+    "wrongChangeType": boolean (true if student made wrong type of change)
+  }`;
+
+  const systemPrompt = `You are a kind but accurate judge for 10-year-old Scratch programmers. You can detect blocks, sprite positions, backgrounds, costumes, and visibility changes. ${schemaDescription}`;
+
+  const userPrompt = `Check if the student followed this Scratch instruction: "${instruction}"
+${lessonObjective ? `(Overall Lesson Objective: ${lessonObjective})` : ''}
+${isFirstLesson ? `NOTE: This is the FIRST lesson of the unit. The student may be performing setup tasks like deleting the default Sprite (Scratch Cat) or adding initial backdrops/sprites.` : ''}
+
+${modificationContext}
+
+${expectedSprite ? `NOTE: The instruction mentions the "${expectedSprite}" sprite. Check if the student edited the correct sprite!` : ''}
+${expectsBackgroundChange ? `NOTE: The instruction asks for a BACKGROUND/BACKDROP change. Check if the Stage backdrop was changed!` : ''}
+${expectsPositionChange ? `NOTE: The instruction asks to MOVE or POSITION a sprite. Check if position coordinates changed!` : ''}
+
+VALIDATION RULES:
+- If instruction starts with [TEXT], check if text answer is reasonable.
+- If instruction is [NEXT], passed=true (observation step).
+- For BLOCK instructions, check if the right blocks were added.
+- For POSITION instructions (move, drag), check if x,y coordinates changed.
+- For BACKDROP/BACKGROUND instructions, check if Stage backdrop changed.
+- For COSTUME instructions, check if sprite costume changed.
+- For SIZE instructions, check if size percentage changed.
+- For VISIBILITY (show/hide) instructions, check if visibility changed.
+- If student made the WRONG type of change, set wrongChangeType=true.
+- If student edited the WRONG sprite, set wrongSprite=true.
+
+CRITICAL IF FAILED:
+- DO NOT provide exact solutions.
+- Give encouraging hints like:
+  - "Check which sprite is selected"
+  - "Try dragging the sprite to move it"
+  - "Look for the Looks blocks to change backdrop"
+  - "The backdrop is changed on the Stage, not a sprite"
+`;
+
+  const text = await callOpenRouter([
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt }
+  ], true);
+
+  if (!text) return null;
+
+  try {
+    const result = JSON.parse(cleanJson(text));
+    let feedbackPrefix = '';
+    if (result.wrongSprite) feedbackPrefix = '🎯 ';
+    else if (result.wrongChangeType) feedbackPrefix = '🔧 ';
+
+    return {
+      passed: result.passed,
+      feedback: `${feedbackPrefix}${result.feedback}`,
+      modifiedSprites: spriteChanges.map(m => m.spriteName),
+      expectedSprite: expectedSprite || undefined,
+      changesDetected: allChanges,
+    };
+  } catch (e) {
+    console.error("Failed to parse Scratch Validation JSON", e);
     return null;
   }
 };
@@ -458,11 +850,11 @@ CRITICAL LESSON FORMAT REQUIREMENTS:
    - Bullet points for lists
    - Example: "**RGB Color System**\\n\\nComputers mix colors using three values:\\n- **R**ed (0-255)\\n- **G**reen (0-255)"
 
-2. **Steps** - Array of 4-5 guided instructions:
-   - Start with observation: "[NEXT] Look at the code. What do you see?"
-   - Include questions: "[TEXT] What color is (0, 255, 0)?"
-   - Add coding tasks: "Change the circle to blue"
-   - Build complexity: "Try mixing red and green to make yellow"
+2. **Steps** - Array of 4-5 guided instructions (NEVER combine multiple actions or tags into one step):
+   - Start with observation: "[NEXT] Look at the code. What do you see?" (Must be its own step)
+   - Include questions: "[TEXT] What color is (0, 255, 0)?" (Must be its own step)
+   - **IMPORTANT**: Be directive but NOT spoon-fed. Avoid "Add the blue block". Instead, use goal-oriented language like "Make the circle move to the right" or "Change the background to a sunny yellow".
+   - Each item in the array MUST contain exactly ONE instruction or tag.
    - Example: ["[NEXT] See the red circle", "[TEXT] What color is (0, 255, 0)?", "Change the circle to blue", "Try mixing colors"]
 
 3. **StarterCode** - Working p5.js code with:
@@ -517,10 +909,11 @@ EXAMPLE LESSON (for theme "Ocean Adventure"):
 
 Now create a complete curriculum for theme: "${theme}"`;
 
+  // Use higher token limit for curriculum generation to prevent truncation
   const text = await callOpenRouter([
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt }
-  ], true);
+  ], true, 8000);
 
   if (!text) return null;
 
@@ -621,8 +1014,9 @@ CURRICULUM DESIGN REQUIREMENTS:
 
 4. **Lesson Format for Scratch**
    - Theory: Explain the NEW concept with **bold headings**, bullet points
-   - Steps: Use [NEXT] for observations, [TEXT] for questions
-   - Steps: Reference blocks by exact name (e.g., "add a 'when flag clicked' block")
+   - Steps: Use [NEXT] for observations, [TEXT] for questions.
+   - **Step Boundaries**: Every [NEXT] or [TEXT] tag MUST be a separate item in the array. Never combine "Instruction [NEXT] Observation" into one string.
+   - **Instruction Style**: Be directive but NOT spoon-fed. Avoid "add a 'when flag clicked' block". Instead, use goal-oriented language like "Make the sprite dance when the green flag is clicked" or "Change the backdrop to the 'Mountain' image".
    - Starter Code: For Lesson 1 = "{}", for Lessons 2+ = completed code from previous lesson
    - Challenge: Creative extension of the lesson concept
    - Tags: Include concept keywords
@@ -654,10 +1048,11 @@ CRITICAL REQUIREMENTS:
 
 Create a curriculum where by the end, students can recreate "${projectAnalysis.title}":`;
 
+  // Use higher token limit for curriculum generation to prevent truncation
   const text = await callOpenRouter([
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt }
-  ], true);
+  ], true, 8000);
 
   if (!text) return null;
 
